@@ -1,0 +1,15 @@
+{
+  "name": "branch-diff",
+  "version": "1.0.0",
+  "description": "Inspect current branch changes from merge-base to HEAD and review them file by file",
+  "tags": [
+    "git",
+    "diff",
+    "review"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

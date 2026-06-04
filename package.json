@@ -1,0 +1,39 @@
+{
+  "name": "orby-agent-config",
+  "version": "0.1.0",
+  "description": "Configure any AI coding agent or editor (Claude, Cursor, Copilot, Codex, Windsurf, …) for a project from one canonical rules source.",
+  "type": "module",
+  "bin": {
+    "oac": "bin/cli.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "src",
+    "catalog",
+    "docs",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/cli.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.7.0"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "claude",
+    "cursor",
+    "copilot",
+    "codex",
+    "windsurf",
+    "AGENTS.md",
+    "configurator",
+    "cli"
+  ],
+  "license": "MIT"
+}

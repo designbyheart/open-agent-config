@@ -1,0 +1,4 @@
+interface:
+  display_name: "Address PR Comments"
+  short_description: "Resolve PR comments with explicit decisions"
+  default_prompt: "Resolve PR comments on this branch and ask me one interactive A/B/custom choice per actionable comment."

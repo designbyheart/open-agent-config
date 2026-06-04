@@ -1,0 +1,8 @@
+{
+  "name": "spec-driven-development",
+  "version": "1.1.0",
+  "description": "Generate a PRD and drive implementation from an approved specification",
+  "tags": ["spec", "prd", "planning"],
+  "install_targets": ["repo", "user"],
+  "entrypoint": "SKILL.md"
+}

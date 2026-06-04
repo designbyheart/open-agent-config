@@ -1,0 +1,8 @@
+{
+  "name": "commit-pr",
+  "version": "1.1.0",
+  "description": "Create a branch, commit changes, run quality gates, push, and open a pull request",
+  "tags": ["git", "pull-request", "workflow"],
+  "install_targets": ["repo", "user"],
+  "entrypoint": "SKILL.md"
+}

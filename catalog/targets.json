@@ -1,0 +1,51 @@
+[
+  {
+    "id": "claude",
+    "label": "Claude Code",
+    "writes": ["CLAUDE.md", ".claude/skills/"],
+    "supportsSkills": true,
+    "detect": ["CLAUDE.md", ".claude"]
+  },
+  {
+    "id": "codex",
+    "label": "Codex / universal (AGENTS.md)",
+    "writes": ["AGENTS.md"],
+    "supportsSkills": false,
+    "detect": ["AGENTS.md", ".codex"]
+  },
+  {
+    "id": "devin",
+    "label": "Devin",
+    "writes": ["AGENTS.md"],
+    "supportsSkills": false,
+    "detect": ["AGENTS.md", ".devin"]
+  },
+  {
+    "id": "cursor",
+    "label": "Cursor",
+    "writes": [".cursor/rules/oac.mdc"],
+    "supportsSkills": false,
+    "detect": [".cursor", ".cursorrules"]
+  },
+  {
+    "id": "copilot",
+    "label": "GitHub Copilot / VS Code",
+    "writes": [".github/copilot-instructions.md"],
+    "supportsSkills": false,
+    "detect": [".github/copilot-instructions.md"]
+  },
+  {
+    "id": "windsurf",
+    "label": "Windsurf",
+    "writes": [".windsurfrules"],
+    "supportsSkills": false,
+    "detect": [".windsurfrules", ".windsurf"]
+  },
+  {
+    "id": "ollama",
+    "label": "Ollama (run models via local/cloud harnesses)",
+    "writes": [".oac/ollama/LAUNCH.md", ".oac/ollama/<app>--<model>.sh", ".oac/ollama/<app>--<model>.ps1"],
+    "supportsSkills": false,
+    "detect": [".oac/ollama"]
+  }
+]

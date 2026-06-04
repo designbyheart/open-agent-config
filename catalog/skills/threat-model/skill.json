@@ -1,0 +1,8 @@
+{
+  "name": "threat-model",
+  "version": "1.1.0",
+  "description": "Create structured STRIDE threat-modelling artifacts for a local repository using a gated, human-reviewed workflow with CIA asset classification",
+  "tags": ["security", "threat-model", "infosec", "stride"],
+  "install_targets": ["repo", "user"],
+  "entrypoint": "SKILL.md"
+}

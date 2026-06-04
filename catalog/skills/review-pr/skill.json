@@ -1,0 +1,15 @@
+{
+  "name": "review-pr",
+  "version": "1.0.0",
+  "description": "Review a GitHub pull request locally, classify findings by severity, and upload selected comments with gh",
+  "tags": [
+    "github",
+    "pull-request",
+    "review"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

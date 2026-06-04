@@ -1,0 +1,8 @@
+[
+  { "id": "claude", "label": "Claude Code", "reads": "CLAUDE.md" },
+  { "id": "codex", "label": "Codex", "reads": "AGENTS.md" },
+  { "id": "codex-app", "label": "Codex App", "reads": "AGENTS.md" },
+  { "id": "opencode", "label": "OpenCode", "reads": "AGENTS.md" },
+  { "id": "openclaw", "label": "OpenClaw", "reads": "CLAUDE.md" },
+  { "id": "hermes", "label": "Hermes Agent", "reads": "AGENTS.md" }
+]
