@@ -1,0 +1,17 @@
+{
+  "name": "clean-code-architect",
+  "version": "1.0.0",
+  "description": "Analyze, plan, and refactor codebases following clean architecture, SOLID, DRY, atomic design, and domain-driven principles.",
+  "tags": [
+    "architecture",
+    "refactor",
+    "clean-code",
+    "code-quality",
+    "solid"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "learn",
+  "version": "1.0.0",
+  "description": "Tutoring mode \u2014 help the user understand a concept themselves (diagnose, scaffold one step per turn) rather than handing over answers.",
+  "tags": [
+    "learning",
+    "tutoring",
+    "education",
+    "pedagogy"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

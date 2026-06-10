@@ -9,6 +9,14 @@
   "engines": {
     "node": ">=18"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OrbyJets/orby-agent-config.git"
+  },
+  "homepage": "https://github.com/OrbyJets/orby-agent-config#readme",
+  "bugs": {
+    "url": "https://github.com/OrbyJets/orby-agent-config/issues"
+  },
   "files": [
     "bin",
     "src",

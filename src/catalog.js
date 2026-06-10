@@ -77,7 +77,7 @@ export function loadSkills() {
     .filter((d) => exists(path.join(SKILLS_DIR, d, 'SKILL.md')))
     .map((dir) => {
       const skillDir = path.join(SKILLS_DIR, dir);
-      const { data } = parseFrontmatter(readText(path.join(skillDir, 'SKILL.md')));
+      const { data, body } = parseFrontmatter(readText(path.join(skillDir, 'SKILL.md')));
 
       let json = {};
       const jsonPath = path.join(skillDir, 'skill.json');
@@ -89,6 +89,20 @@ export function loadSkills() {
         }
       }
 
+      // Bundled content beyond SKILL.md / skill.json. Markdown extras
+      // (references/, examples/, …) are inlinable into other tools' single
+      // config files; non-text extras (scripts/, assets/, binaries) can only
+      // travel with a Claude install.
+      const relFiles = walkFiles(skillDir).filter((f) => f !== 'SKILL.md' && f !== 'skill.json');
+      const extraDocs = relFiles
+        .filter((f) => f.toLowerCase().endsWith('.md'))
+        .sort()
+        .map((rel) => ({
+          path: rel.split(path.sep).join('/'),
+          body: readText(path.join(skillDir, rel)).trim(),
+        }));
+      const hasNonDocExtras = relFiles.some((f) => !f.toLowerCase().endsWith('.md'));
+
       return {
         id: dir,
         name: json.name || data.name || dir,
@@ -96,9 +110,20 @@ export function loadSkills() {
         version: json.version || null,
         tags: json.tags || [],
         trigger: data.trigger || '',
+        body: body.trim(),
+        extraDocs,
+        hasNonDocExtras,
         dir: skillDir,
       };
     });
+}
+
+/** Recursively list files under `dir`, returned as paths relative to `base`. */
+function walkFiles(dir, base = dir) {
+  const out = [];
+  for (const f of listFiles(dir)) out.push(path.relative(base, path.join(dir, f)));
+  for (const d of listDirs(dir)) out.push(...walkFiles(path.join(dir, d), base));
+  return out;
 }
 
 export function skillSourceDir(id) {
@@ -130,7 +155,15 @@ export function hashSource({ stacks = [], skills = [], ollama } = {}) {
   for (const s of loadStacks()) {
     if (stacks.includes(s.id)) h.update(`stack:${s.id}\n${s.body}\n`);
   }
-  for (const id of [...skills].sort()) h.update(`skill:${id}\n`);
+  // Skill bodies are inlined into non-Claude config files, so a body edit must
+  // change the hash — otherwise `doctor` would report a project as current
+  // after a skill was revised.
+  const skillById = new Map(loadSkills().map((s) => [s.id, s]));
+  for (const id of [...skills].sort()) {
+    const s = skillById.get(id);
+    h.update(`skill:${id}\n${s ? s.body : ''}\n`);
+    if (s) for (const d of s.extraDocs || []) h.update(`skilldoc:${d.path}\n${d.body}\n`);
+  }
   if (ollama) {
     for (const m of [...(ollama.models || [])].sort()) h.update(`ollama-model:${m}\n`);
     for (const a of [...(ollama.apps || [])].sort()) h.update(`ollama-app:${a}\n`);

@@ -1,0 +1,16 @@
+{
+  "name": "source-code-context",
+  "version": "1.0.0",
+  "description": "Provide local source-code references so an AI agent searches the real implementation instead of guessing API names or framework behavior.",
+  "tags": [
+    "context",
+    "source-code",
+    "agentic-engineering",
+    "accuracy"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

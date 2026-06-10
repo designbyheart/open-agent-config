@@ -1,0 +1,16 @@
+{
+  "name": "doc-coauthoring",
+  "version": "1.0.0",
+  "description": "Structured workflow for co-authoring docs, proposals, specs, and decision docs \u2014 context gathering, iterative refinement, and reader testing.",
+  "tags": [
+    "writing",
+    "documentation",
+    "workflow",
+    "collaboration"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

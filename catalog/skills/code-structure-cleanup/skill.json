@@ -1,0 +1,8 @@
+{
+  "name": "code-structure-cleanup",
+  "version": "1.0.0",
+  "description": "Post-feature cleanup pass that extracts duplicated runtime mechanics into reusable service-layer modules without changing behavior.",
+  "tags": ["refactor", "service-layer", "code-quality", "cleanup"],
+  "install_targets": ["repo", "user"],
+  "entrypoint": "SKILL.md"
+}

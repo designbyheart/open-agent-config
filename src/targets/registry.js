@@ -5,7 +5,7 @@ import copilot from './copilot.js';
 import windsurf from './windsurf.js';
 import devin from './devin.js';
 import ollama from './ollama.js';
-import { assemble, renderSections, renderSkills } from '../generate.js';
+import { assemble, renderSections, renderSkills, renderSkillsInline } from '../generate.js';
 
 const TARGETS = [claude, codex, devin, cursor, copilot, windsurf, ollama];
 const BY_ID = new Map(TARGETS.map((t) => [t.id, t]));
@@ -37,10 +37,13 @@ export function buildArtifacts(manifest) {
   for (const id of ids) {
     const target = BY_ID.get(id);
     if (!target) continue;
-    // Skills are physically installed only for Claude; everyone else gets a
-    // reference list. If Claude isn't selected, no skills are installed so the
-    // reference wording still points at where they'd live.
-    const skillsMd = renderSkills(doc.selectedSkills, { installed: target.supportsSkills });
+    // Claude physically installs skills into `.claude/skills/` and loads them
+    // on demand, so it only needs a short reference list. Tools that read a
+    // single config file (Cursor, Copilot, Codex, Windsurf, Devin) can't open
+    // those files, so the full skill playbooks are inlined for them instead.
+    const skillsMd = target.supportsSkills
+      ? renderSkills(doc.selectedSkills, { installed: true })
+      : renderSkillsInline(doc.selectedSkills);
     const rendered = target.render({
       projectName: doc.projectName,
       description: doc.description,

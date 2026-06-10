@@ -40,20 +40,44 @@ the block and only refreshes what `oac` owns.
 
 ## Install & run
 
-Requires **Node.js ≥ 18**. No global install needed:
+Requires **Node.js ≥ 18**. This package is **not published to npm** — it's installed
+directly from the internal GitHub repo, so any developer with access to
+`OrbyJets/orby-agent-config` can use it with their existing GitHub auth.
+
+**Run without installing** (always latest `main`):
 
 ```bash
-npx orby-agent-config init
+# SSH (recommended for the private repo — uses your GitHub SSH key)
+npx git+ssh://git@github.com/OrbyJets/orby-agent-config.git init
+
+# or HTTPS (uses your git credential helper / token)
+npx github:OrbyJets/orby-agent-config init
 ```
 
-Or install the command (`oac`) globally / link during development:
+**Install the `oac` command globally:**
 
 ```bash
-npm install -g orby-agent-config      # then: oac init
-# or, working in this repo:
-npm install && npm link               # then: oac init
-node bin/cli.js init                  # without linking
+# SSH
+npm install -g git+ssh://git@github.com/OrbyJets/orby-agent-config.git
+# or HTTPS
+npm install -g github:OrbyJets/orby-agent-config
+
+oac init        # now available everywhere
 ```
+
+Pin to a tag or branch by appending `#<ref>`, e.g.
+`npm install -g github:OrbyJets/orby-agent-config#v0.1.0`. Update later with the same
+install command. To uninstall: `npm uninstall -g orby-agent-config`.
+
+**Working inside a clone of this repo** (for editing the catalog/CLI):
+
+```bash
+npm install && npm link    # then: oac init   (re-run npm link per Node version if you use nvm)
+node bin/cli.js init       # or run directly without linking
+```
+
+> Access: because the repo is private, developers must be members of the `OrbyJets` org
+> (or have a token with `repo` scope). SSH is the smoothest for most setups.
 
 ---
 
@@ -124,8 +148,15 @@ oac init --yes --skills-only --skills=commit-pr,review-pr --dir=~/work/existing-
 | Ollama | — (launches a harness) | `.oac/ollama/LAUNCH.md` + `.sh`/`.ps1` launchers |
 
 > **Skills note:** only Claude has a native skills mechanism, so skills are physically
-> copied into `.claude/skills/`. For other tools the same skills are listed as
-> reference playbooks inside their instruction file.
+> copied into `.claude/skills/` and loaded on demand (Claude's config just lists them).
+> Every other tool reads a single instruction file, so the **full text of each selected
+> skill is inlined** into that file (`AGENTS.md`, `.cursor/rules/oac.mdc`,
+> `.github/copilot-instructions.md`, `.windsurfrules`) — the guidance reaches the tool
+> instead of pointing at files it can't open. A skill's **bundled markdown** (its
+> `references/`, `examples/`, …) is inlined too, under headings that match the paths the
+> playbook cites, so router-style skills stay portable. Only **non-text** extras
+> (scripts, assets, binaries) can't be inlined — skills that ship them say so, and those
+> files travel only with a Claude Code install.
 
 ### Ollama models
 
@@ -155,7 +186,8 @@ oac init --yes --targets=claude,codex,ollama \
 Fully cross-platform. The CLI uses only Node's `fs`/`path` (no shell, no symlinks),
 and every Ollama launcher ships as both `.sh` (macOS/Linux) and `.ps1` (Windows
 PowerShell 5.1+/7). Line endings are preserved per-file, and the executable bit is set
-where the OS supports it (a no-op on Windows). Run via `npx orby-agent-config` on any OS.
+where the OS supports it (a no-op on Windows). Run via `npx github:OrbyJets/orby-agent-config`
+(or the SSH form) on any OS.
 
 ---
 

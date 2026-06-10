@@ -1,0 +1,15 @@
+{
+  "name": "internal-comms",
+  "version": "1.0.0",
+  "description": "Write internal communications (3P updates, newsletters, FAQs, status/leadership updates, incident reports) in the company's preferred formats.",
+  "tags": [
+    "writing",
+    "internal-comms",
+    "communication"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

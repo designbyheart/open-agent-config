@@ -1,0 +1,16 @@
+{
+  "name": "grep-loop-review-workflow",
+  "version": "1.0.0",
+  "description": "Iterate on a small PR by repeatedly applying review feedback until tests pass and the PR is merge-ready.",
+  "tags": [
+    "review",
+    "workflow",
+    "pr",
+    "ci"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

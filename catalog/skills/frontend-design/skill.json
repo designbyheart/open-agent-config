@@ -1,0 +1,17 @@
+{
+  "name": "frontend-design",
+  "version": "1.0.0",
+  "description": "Create distinctive, production-grade frontend interfaces with high design quality, avoiding generic AI aesthetics.",
+  "tags": [
+    "frontend",
+    "design",
+    "ui",
+    "react",
+    "css"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "code-structure",
+  "version": "1.0.0",
+  "description": "Service-layer architecture guidance — actions orchestrate domain rules, a shared service layer centralizes reusable operational mechanics with a composable, explicit-input API.",
+  "tags": ["architecture", "service-layer", "refactor", "design"],
+  "install_targets": ["repo", "user"],
+  "entrypoint": "SKILL.md"
+}

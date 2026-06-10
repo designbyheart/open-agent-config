@@ -1,0 +1,8 @@
+{
+  "name": "agentic-engineering-workflow",
+  "version": "1.0.0",
+  "description": "End-to-end workflow for building software with AI agents — harness choice, context discipline, small reviewable units, cleanup, review loops, launch pressure, and security basics.",
+  "tags": ["agentic-engineering", "ai-coding", "workflow", "process"],
+  "install_targets": ["repo", "user"],
+  "entrypoint": "SKILL.md"
+}

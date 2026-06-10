@@ -1,0 +1,16 @@
+{
+  "name": "premortem",
+  "version": "1.0.0",
+  "description": "Pre-mortem analysis \u2014 imagine a plan has failed, then work backward to identify causes and preventions before committing.",
+  "tags": [
+    "planning",
+    "risk",
+    "decision-making",
+    "premortem"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}
