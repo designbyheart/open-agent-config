@@ -22,6 +22,7 @@
     "src",
     "catalog",
     "docs",
+    "hooks",
     "README.md"
   ],
   "scripts": {

@@ -109,6 +109,68 @@ oac init --yes --skills-only --skills=commit-pr,review-pr --dir=~/work/existing-
 
 ---
 
+## Pre-push PR review hook
+
+Get a **Copilot-style PR review on every `git push`**, before the code leaves your machine.
+A git `pre-push` hook runs the [`pr-review`](catalog/skills/pr-review/SKILL.md) skill against
+the diff being pushed (headless Claude Code), prints a summary + severity-tagged findings,
+and **blocks the push only when a high-severity bug or security issue is found**.
+
+**Requires:** the [`claude`](https://docs.claude.com/en/docs/claude-code) CLI on your `PATH`.
+If it's missing, the hook prints a notice and lets the push through (never blocks you).
+
+### 1. Install the skill into your repo
+
+```bash
+oac add-skill pr-review          # → .claude/skills/pr-review/   (run inside the repo)
+```
+
+The hook calls `claude -p "/pr-review"`, which loads this skill from `.claude/skills/`.
+
+### 2. Install the hook
+
+**This repo only** (recommended — try it before rolling out):
+
+```bash
+# from the orby-agent-config clone:
+cp hooks/pre-push ~/work/your-repo/.git/hooks/pre-push
+chmod +x ~/work/your-repo/.git/hooks/pre-push
+```
+
+**All your repos at once** (global) — git's `core.hooksPath` makes every repo use this hook.
+The script delegates to a repo-local `.git/hooks/pre-push` first, so existing per-repo hooks
+keep working:
+
+```bash
+mkdir -p ~/.config/git/hooks
+cp hooks/pre-push ~/.config/git/hooks/pre-push
+chmod +x ~/.config/git/hooks/pre-push
+git config --global core.hooksPath ~/.config/git/hooks
+```
+
+> Note: a global `core.hooksPath` is overridden by any repo that sets its **own** local
+> `core.hooksPath` (e.g. husky), so the review won't auto-run there — use
+> `claude -p "/pr-review origin/main..HEAD"` by hand in those repos.
+
+### 3. Use it
+
+```bash
+git push                      # review runs automatically
+git push --no-verify          # skip all hooks
+SKIP_PR_REVIEW=1 git push     # skip just this review
+claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
+```
+
+### Tuning
+
+- **Change the gate** — by default only `VERDICT: BLOCK` (a `high`-severity finding) rejects
+  the push. Edit the `grep '^VERDICT: BLOCK'` line in `hooks/pre-push`, or adjust the severity
+  rules in `catalog/skills/pr-review/SKILL.md`.
+- **Large diffs** are capped at 4000 lines and the review times out after 180s — both fail
+  *open* (push allowed) so a slow review never traps you.
+
+---
+
 ## Cheat sheet
 
 | Command | What it does |
