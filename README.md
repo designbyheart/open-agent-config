@@ -129,28 +129,39 @@ The hook calls `claude -p "/pr-review"`, which loads this skill from `.claude/sk
 
 ### 2. Install the hook
 
-**This repo only** (recommended — try it before rolling out):
+The hook ships as **two files** in [`hooks/`](hooks/):
+
+- `pr-review-run` — the shared review body (reads the pre-push stdin, runs the review, gates on the verdict). One source of truth.
+- `pre-push` — a thin **global wrapper** that delegates to a repo-local hook first, then runs `pr-review-run`.
+
+**This repo only** (recommended — try it before rolling out). No wrapper needed; install the
+body directly as the repo's hook:
 
 ```bash
 # from the orby-agent-config clone:
-cp hooks/pre-push ~/work/your-repo/.git/hooks/pre-push
+cp hooks/pr-review-run ~/work/your-repo/.git/hooks/pre-push
 chmod +x ~/work/your-repo/.git/hooks/pre-push
 ```
 
-**All your repos at once** (global) — git's `core.hooksPath` makes every repo use this hook.
-The script delegates to a repo-local `.git/hooks/pre-push` first, so existing per-repo hooks
-keep working:
+**All your repos at once** (global) — git's `core.hooksPath` makes every repo use the wrapper,
+which delegates to a repo-local `.git/hooks/pre-push` first so existing per-repo hooks keep
+working:
 
 ```bash
 mkdir -p ~/.config/git/hooks
-cp hooks/pre-push ~/.config/git/hooks/pre-push
-chmod +x ~/.config/git/hooks/pre-push
+cp hooks/pre-push hooks/pr-review-run ~/.config/git/hooks/
+chmod +x ~/.config/git/hooks/pre-push ~/.config/git/hooks/pr-review-run
 git config --global core.hooksPath ~/.config/git/hooks
 ```
 
-> Note: a global `core.hooksPath` is overridden by any repo that sets its **own** local
-> `core.hooksPath` (e.g. husky), so the review won't auto-run there — use
-> `claude -p "/pr-review origin/main..HEAD"` by hand in those repos.
+**Husky repos** — git points `core.hooksPath` at `.husky/`, so the global wrapper above is
+bypassed. Call the body directly from `.husky/pre-push` instead (assuming `pr-review-run` is on
+your `PATH` or installed at `~/.config/git/hooks/`):
+
+```sh
+# .husky/pre-push
+exec ~/.config/git/hooks/pr-review-run "$@"
+```
 
 ### 3. Use it
 

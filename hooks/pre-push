@@ -3,22 +3,23 @@
 # Copilot-style PR review on push, powered by Claude Code (headless).
 # Installed globally via:  git config --global core.hooksPath ~/.config/git/hooks
 #
-# Behavior: runs the /pr-review skill on the diff being pushed.
-#   - prints the review
-#   - BLOCKS the push (exit 1) only when the review emits "VERDICT: BLOCK"
-#     (i.e. a high-severity bug or security issue was found)
+# This is the GLOBAL wrapper. It runs for every repo whose effective
+# core.hooksPath is this directory (i.e. repos WITHOUT a local override such
+# as husky). The actual review lives in the sibling `pr-review-run` script so
+# husky repos can call the body directly without looping back through this
+# delegating wrapper.
+#
+# Behavior: runs the /pr-review skill on the diff being pushed; BLOCKS the push
+# (exit 1) only when the review emits "VERDICT: BLOCK".
 #
 # Bypass:  git push --no-verify        (skip all hooks)
 #     or:  SKIP_PR_REVIEW=1 git push   (skip just this review)
-#
-# Because a global core.hooksPath overrides each repo's .git/hooks, this script
-# first delegates to a repo-local pre-push hook if one exists, so existing hooks
-# keep working.
 
 set -u
 
 # --- 0. delegate to repo-local hook, if any -------------------------------
-repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+# A global core.hooksPath overrides each repo's .git/hooks, so give a real
+# repo-local pre-push a chance to run first and keep working.
 git_dir=$(git rev-parse --git-path hooks 2>/dev/null)
 local_hook="$git_dir/pre-push"
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
@@ -26,79 +27,5 @@ if [ -n "${git_dir:-}" ] && [ -x "$local_hook" ] && [ "$local_hook" != "$self" ]
   "$local_hook" "$@" || exit $?
 fi
 
-# --- 1. escape hatches ----------------------------------------------------
-[ "${SKIP_PR_REVIEW:-}" = "1" ] && exit 0
-
-CLAUDE=$(command -v claude || true)
-if [ -z "$CLAUDE" ]; then
-  echo "pr-review: 'claude' CLI not found on PATH — skipping review." >&2
-  exit 0
-fi
-
-remote="$1"
-Z=0000000000000000000000000000000000000000
-
-# --- 2. figure out what's being pushed ------------------------------------
-# git feeds "<local ref> <local sha> <remote ref> <remote sha>" lines on stdin.
-range=""
-while read -r local_ref local_sha remote_ref remote_sha; do
-  [ "$local_sha" = "$Z" ] && continue            # branch deletion, nothing to review
-  if [ "$remote_sha" = "$Z" ]; then
-    # new branch on remote: review against the default branch if we can find it
-    base=$(git merge-base "$local_sha" origin/HEAD 2>/dev/null) \
-      || base=$(git merge-base "$local_sha" origin/main 2>/dev/null) \
-      || base=""
-    if [ -n "$base" ]; then range="$base..$local_sha"; else range="$local_sha"; fi
-  else
-    range="$remote_sha..$local_sha"             # normal update: only the new commits
-  fi
-done
-
-[ -z "$range" ] && exit 0
-
-DIFF=$(git diff "$range" 2>/dev/null)
-[ -z "$DIFF" ] && exit 0
-
-# cap very large diffs so the review stays fast and within context
-MAX_LINES=4000
-LINES=$(printf '%s\n' "$DIFF" | wc -l | tr -d ' ')
-if [ "$LINES" -gt "$MAX_LINES" ]; then
-  echo "pr-review: diff is large (${LINES} lines) — reviewing first ${MAX_LINES} lines." >&2
-  DIFF=$(printf '%s\n' "$DIFF" | sed -n "1,${MAX_LINES}p")
-fi
-
-# --- 3. run the review (headless, read-only, no tool permissions needed) ---
-echo "──────────────────────────────────────────────"
-echo " pr-review: reviewing $range  (push → $remote)"
-echo "──────────────────────────────────────────────"
-
-PROMPT="/pr-review
-
-Review the unified git diff provided on stdin. Follow the pr-review skill exactly,
-including ending with the VERDICT line."
-
-# Use a timeout if one is available so a hung review never traps the push.
-RUNNER=""
-if command -v timeout >/dev/null 2>&1; then RUNNER="timeout 180";
-elif command -v gtimeout >/dev/null 2>&1; then RUNNER="gtimeout 180"; fi
-
-REVIEW=$(printf '%s\n' "$DIFF" | $RUNNER "$CLAUDE" -p "$PROMPT" --output-format text 2>/dev/null)
-status=$?
-
-if [ -z "$REVIEW" ]; then
-  echo "pr-review: review produced no output (exit $status) — allowing push." >&2
-  exit 0
-fi
-
-printf '%s\n' "$REVIEW"
-echo "──────────────────────────────────────────────"
-
-# --- 4. gate on the verdict -----------------------------------------------
-if printf '%s\n' "$REVIEW" | grep -q '^VERDICT: BLOCK'; then
-  echo "pr-review: ❌ high-severity issues found — push blocked." >&2
-  echo "           fix them, or bypass with: git push --no-verify" >&2
-  exit 1
-fi
-
-echo "pr-review: ✅ no blocking issues — push allowed."
-exit 0
+# --- 1. run the shared review body ----------------------------------------
+exec "$(dirname "$0")/pr-review-run" "$@"
