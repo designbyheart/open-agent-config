@@ -1,0 +1,18 @@
+{
+  "name": "ponytail",
+  "version": "1.0.0",
+  "description": "Forces the laziest solution that actually works: YAGNI, stdlib over custom, native over dependency, one line over fifty. Intensity levels: lite, full, ultra.",
+  "tags": [
+    "minimalism",
+    "yagni",
+    "refactor",
+    "code-quality"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md",
+  "source": "https://github.com/DietrichGebert/ponytail",
+  "license": "MIT"
+}
