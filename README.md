@@ -18,8 +18,8 @@ config, so nested repos inside a workspace can each have a different setup.
 orby-agent-config/            ← this repo: the master catalog + the CLI
   catalog/
     rules/                    ← canonical source of truth (markdown fragments)
-      00-core-principles.md
-      10-code-quality.md
+      00-operating-rules.md   ← numbered engineering ruleset (precision, token economy, delegation)
+      20-voice-and-tone.md    ← delivery & persona
       stacks/                 ← optional stack-specific rules
     skills/<name>/SKILL.md    ← master skills catalog
     targets.json              ← supported agents/editors
