@@ -51,15 +51,22 @@ export async function interactiveSetup({
   }
 
   const installableSkills = skills.filter((s) => s.id !== '_example');
+  const ALL_SKILLS = '*';
   let selectedSkills = existing?.skills || [];
   if (installableSkills.length) {
     selectedSkills = await p.multiselect({
       message: 'Skills to install (optional)',
-      options: installableSkills.map((s) => ({ value: s.id, label: s.name, hint: s.description })),
+      options: [
+        { value: ALL_SKILLS, label: 'All Skills', hint: `install all ${installableSkills.length} skills in the catalog` },
+        ...installableSkills.map((s) => ({ value: s.id, label: s.name, hint: s.description })),
+      ],
       initialValues: existing?.skills || [],
       required: false,
     });
     if (cancelled(selectedSkills)) return cancel();
+    if (selectedSkills.includes(ALL_SKILLS)) {
+      selectedSkills = installableSkills.map((s) => s.id);
+    }
   }
 
   // Ollama models — only when the ollama target is selected.

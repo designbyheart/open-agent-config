@@ -22,7 +22,13 @@ function manifestFromFlags(projectDir, flags, existing) {
   const unknown = targets.filter((t) => !isKnownTarget(t));
   if (unknown.length) throw new Error(`Unknown target(s): ${unknown.join(', ')}`);
 
-  const skills = listFlag(flags.skills) || existing?.skills || [];
+  const skillsFlag = listFlag(flags.skills);
+  const skills =
+    skillsFlag?.length === 1 && skillsFlag[0].toLowerCase() === 'all'
+      ? loadSkills()
+          .filter((s) => s.id !== '_example')
+          .map((s) => s.id)
+      : skillsFlag || existing?.skills || [];
   const stacks = listFlag(flags.stacks) || existing?.stacks || [];
   const name = (typeof flags.name === 'string' && flags.name) || existing?.project?.name || path.basename(projectDir);
 
