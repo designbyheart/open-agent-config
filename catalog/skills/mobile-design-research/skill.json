@@ -1,0 +1,17 @@
+{
+  "name": "mobile-design-research",
+  "version": "1.0.0",
+  "description": "Research proven mobile UI patterns on Mobbin (via the Mobbin MCP) before designing or changing any mobile app interface.",
+  "tags": [
+    "mobile",
+    "design",
+    "research",
+    "mobbin",
+    "ux"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}
