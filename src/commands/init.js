@@ -98,6 +98,6 @@ export async function cmdInit(ctx) {
   }
   console.log(`  ✔ Wrote ${written.length} path(s):`);
   for (const w of written) console.log(`      ${w}`);
-  console.log(`\n  Manifest: orby-agent.config.json`);
+  console.log(`\n  Manifest: agent.config.json`);
   console.log(`  Re-run after catalog updates with:  oac sync\n`);
 }

@@ -14,7 +14,7 @@ export async function interactiveSetup({
   ollamaApps = [],
   defaultOllamaModels = [],
 }) {
-  p.intro('orby-agent-config — configure this project');
+  p.intro('open-agent-config — configure this project');
 
   const cancelled = (v) => p.isCancel(v);
 

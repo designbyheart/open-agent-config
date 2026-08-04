@@ -51,7 +51,7 @@ oac sync --dir=~/work/other-project
 ## Per-project files
 
 ```
-orby-agent.config.json            manifest (selected targets/skills/stacks/ollama, source hash)
+agent.config.json            manifest (selected targets/skills/stacks/ollama, source hash)
 AGENTS.md                         universal (Codex, Devin, AGENTS.md-aware tools)
 CLAUDE.md                         Claude Code
 .claude/skills/<name>/            installed skills (Claude)

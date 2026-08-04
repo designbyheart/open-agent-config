@@ -1,7 +1,7 @@
 {
-  "name": "orby-agent-config",
+  "name": "open-agent-config",
   "version": "0.1.0",
-  "description": "Configure any AI coding agent or editor (Claude, Cursor, Copilot, Codex, Windsurf, …) for a project from one canonical rules source.",
+  "description": "Configure any AI coding agent or editor (Claude, Cursor, Copilot, Codex, Windsurf, \u2026) for a project from one canonical rules source.",
   "type": "module",
   "bin": {
     "oac": "bin/cli.js"
@@ -11,19 +11,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OrbyJets/orby-agent-config.git"
+    "url": "git+https://github.com/OWNER/open-agent-config.git"
   },
-  "homepage": "https://github.com/OrbyJets/orby-agent-config#readme",
+  "homepage": "https://github.com/OWNER/open-agent-config#readme",
   "bugs": {
-    "url": "https://github.com/OrbyJets/orby-agent-config/issues"
+    "url": "https://github.com/OWNER/open-agent-config/issues"
   },
   "files": [
     "bin",
     "src",
     "catalog",
-    "docs",
     "hooks",
-    "README.md"
+    "README.md",
+    "CHEATSHEET.md"
   ],
   "scripts": {
     "start": "node bin/cli.js",

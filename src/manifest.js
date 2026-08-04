@@ -2,11 +2,19 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { exists, readText, writeText } from './fsutil.js';
 
-export const MANIFEST_NAME = 'orby-agent.config.json';
+export const MANIFEST_NAME = 'agent.config.json';
+/** Manifest names written by earlier versions; still read for backward compatibility. */
+export const LEGACY_MANIFEST_NAMES = ['orby-agent.config.json'];
 export const SCHEMA_VERSION = 1;
 
 export function manifestPath(projectDir) {
-  return path.join(projectDir, MANIFEST_NAME);
+  const current = path.join(projectDir, MANIFEST_NAME);
+  if (exists(current)) return current;
+  for (const legacy of LEGACY_MANIFEST_NAMES) {
+    const legacyPath = path.join(projectDir, legacy);
+    if (exists(legacyPath)) return legacyPath;
+  }
+  return current;
 }
 
 export function manifestExists(projectDir) {

@@ -6,7 +6,7 @@
 export const START = '<!-- oac:start -->';
 export const END = '<!-- oac:end -->';
 const AUTOGEN_NOTE =
-  '<!-- Managed by orby-agent-config. Edit catalog rules, then run `oac sync`. Manual edits inside this block are overwritten. -->';
+  '<!-- Managed by open-agent-config. Edit catalog rules, then run `oac sync`. Manual edits inside this block are overwritten. -->';
 
 /** Wrap rendered body in start/end markers. */
 export function wrap(body) {

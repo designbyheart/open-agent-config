@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "orby-agent-config",
+      "name": "open-agent-config",
       "dependencies": {
         "@clack/prompts": "^0.7.0",
       },

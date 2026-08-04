@@ -7,7 +7,7 @@ import { exists, readText, copyDir, rmrf, listDirs } from '../fsutil.js';
 
 // Terms that usually mean a skill is tied to a specific org/repo and should be
 // genericized before sharing across projects.
-const PROJECT_SPECIFIC = /tobii|pdk|artifactory|bazel|clang-format|request_user_input|\bmaster\b/i;
+const PROJECT_SPECIFIC = /artifactory|bazel|clang-format|request_user_input|\bmaster\b/i;
 
 function isGitUrl(s) {
   return /^(https?:\/\/|git@|ssh:\/\/)/.test(s) || s.endsWith('.git');

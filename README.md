@@ -1,21 +1,73 @@
-# orby-agent-config (`oac`)
+# open-agent-config (`oac`)
 
-Configure **any** AI coding agent or editor for a project from **one** canonical rules
-source. Pick the tools your teammates actually use — Claude Code, Cursor, GitHub
-Copilot / VS Code, Codex, Windsurf, and more — and `oac` generates the right config
-file for each (`CLAUDE.md`, `AGENTS.md`, `.cursor/rules/*.mdc`,
-`.github/copilot-instructions.md`, `.windsurfrules`) plus copies the skills you choose
-into place. Same rules in, same behavior out — regardless of which tool a developer opens.
+**One rules source. Every AI editor.** Write your engineering rules and skills once, and
+`oac` generates the config each tool actually reads — `CLAUDE.md`, `AGENTS.md`,
+`.cursor/rules/*.mdc`, `.github/copilot-instructions.md`, `.windsurfrules` — plus copies
+the skills you selected into place.
 
-Cross-platform (Windows / macOS / Linux). Each project gets its **own** self-contained
-config, so nested repos inside a workspace can each have a different setup.
+Same rules in, same behaviour out, regardless of which editor a developer opens.
+Cross-platform (Windows / macOS / Linux). Every project gets its own self-contained
+config, so nested repos in one workspace can each run a different setup.
+
+![One rules source, every editor](media/oac-diagram.png)
+
+---
+
+## Quick start
+
+Requires **Node.js ≥ 18**.
+
+```bash
+# run it without installing
+npx github:OWNER/open-agent-config init
+
+# or install the CLI globally
+npm install -g github:OWNER/open-agent-config
+oac init
+```
+
+`init` is interactive: pick your editors, stacks, and skills. Then, in any project:
+
+```bash
+oac sync      # regenerate config after the catalog changes
+oac doctor    # verify config is present, intact, and current
+```
+
+Non-interactive, for CI or scripting:
+
+```bash
+oac init --yes --targets=claude,cursor,codex --stacks=nextjs --skills=code-review
+```
+
+![oac init and oac doctor](media/oac-init.png)
+
+Pin a version by appending `#<ref>`, e.g. `npm install -g github:OWNER/open-agent-config#v0.1.0`.
+To uninstall: `npm uninstall -g open-agent-config`.
+
+**Working inside a clone** (to edit the catalog or CLI):
+
+```bash
+npm install && npm link    # then: oac init   (re-run npm link per Node version if you use nvm)
+node bin/cli.js init       # or run directly, without linking
+```
+
+---
+
+## The problem it solves
+
+Every AI editor invented its own convention for project instructions. A team using three
+of them maintains the same engineering rules in three files, and within a month the
+copies have drifted. Reviews get stricter in one tool than another, the same mistake gets
+corrected in one place and not the others, and nobody can say which file is authoritative.
+
+`oac` makes the catalog authoritative and treats every editor config as build output.
 
 ---
 
 ## How it works
 
 ```
-orby-agent-config/            ← this repo: the master catalog + the CLI
+open-agent-config/            ← this repo: the master catalog + the CLI
   catalog/
     rules/                    ← canonical source of truth (markdown fragments)
       00-operating-rules.md   ← numbered engineering ruleset (precision, token economy, delegation)
@@ -26,185 +78,25 @@ orby-agent-config/            ← this repo: the master catalog + the CLI
   src/  bin/                  ← the CLI
 
 your-project/                 ← anywhere on disk
-  orby-agent.config.json      ← per-project manifest (what was selected)
-  AGENTS.md  CLAUDE.md  …      ← generated config, one per selected tool
-  .claude/skills/<name>/       ← skills copied in (Claude)
+  agent.config.json           ← per-project manifest (what was selected)
+  AGENTS.md  CLAUDE.md  …     ← generated config, one per selected tool
+  .claude/skills/<name>/      ← skills copied in (Claude)
 ```
 
-You edit rules **once** in `catalog/rules/`. Each project's generated files are
-assembled from those fragments and wrapped in a managed block
-(`<!-- oac:start --> … <!-- oac:end -->`) so re-running keeps your hand edits outside
-the block and only refreshes what `oac` owns.
-
----
-
-## Install & run
-
-Requires **Node.js ≥ 18**. This package is **not published to npm** — it's installed
-directly from the internal GitHub repo, so any developer with access to
-`OrbyJets/orby-agent-config` can use it with their existing GitHub auth.
-
-**Run without installing** (always latest `main`):
-
-```bash
-# SSH (recommended for the private repo — uses your GitHub SSH key)
-npx git+ssh://git@github.com/OrbyJets/orby-agent-config.git init
-
-# or HTTPS (uses your git credential helper / token)
-npx github:OrbyJets/orby-agent-config init
-```
-
-**Install the `oac` command globally:**
-
-```bash
-# SSH
-npm install -g git+ssh://git@github.com/OrbyJets/orby-agent-config.git
-# or HTTPS
-npm install -g github:OrbyJets/orby-agent-config
-
-oac init        # now available everywhere
-```
-
-Pin to a tag or branch by appending `#<ref>`, e.g.
-`npm install -g github:OrbyJets/orby-agent-config#v0.1.0`. Update later with the same
-install command. To uninstall: `npm uninstall -g orby-agent-config`.
-
-**Working inside a clone of this repo** (for editing the catalog/CLI):
-
-```bash
-npm install && npm link    # then: oac init   (re-run npm link per Node version if you use nvm)
-node bin/cli.js init       # or run directly without linking
-```
-
-> Access: because the repo is private, developers must be members of the `OrbyJets` org
-> (or have a token with `repo` scope). SSH is the smoothest for most setups.
-
----
-
-## Quick start
-
-```bash
-cd ~/work/your-project
-oac init            # interactive: pick agents/editors, stacks, skills
-# …edit catalog rules later, then in each project:
-oac sync            # regenerate config from the updated catalog
-oac doctor          # verify the project's config is intact and current
-```
-
-Non-interactive (CI / scripted):
-
-```bash
-oac init --yes --targets=claude,cursor,codex --stacks=nextjs --skills=my-skill
-```
+You edit rules **once** in `catalog/rules/`. Each project's generated files are assembled
+from those fragments and wrapped in a managed block
+(`<!-- oac:start --> … <!-- oac:end -->`), so re-running keeps your hand edits outside the
+block and only refreshes what `oac` owns.
 
 ### Adding skills to a repo that already has its own agent config
 
-Use `--skills-only` to install skills + write the manifest **without** touching existing
-`AGENTS.md` / `CLAUDE.md` / `CURSOR.md` / `.cursorrules` / etc. Skills land in
-`.claude/skills/`; no rule files are generated or modified.
+Use `--skills-only` to install skills and write the manifest **without** touching an
+existing `AGENTS.md` / `CLAUDE.md` / `.cursorrules`. Skills land in `.claude/skills/`; no
+rule files are generated or modified.
 
 ```bash
 oac init --yes --skills-only --skills=commit-pr,review-pr --dir=~/work/existing-repo
 ```
-
----
-
-## Pre-push PR review hook
-
-Get a **Copilot-style PR review on every `git push`**, before the code leaves your machine.
-A git `pre-push` hook runs the [`pr-review`](catalog/skills/pr-review/SKILL.md) skill against
-the diff being pushed (headless Claude Code), prints a summary + severity-tagged findings,
-and **blocks the push only when a high-severity bug or security issue is found**.
-
-**Requires:** the [`claude`](https://docs.claude.com/en/docs/claude-code) CLI on your `PATH`.
-If it's missing, the hook prints a notice and lets the push through (never blocks you).
-
-### 1. Install the skill into your repo
-
-```bash
-oac add-skill pr-review          # → .claude/skills/pr-review/   (run inside the repo)
-```
-
-The hook calls `claude -p "/pr-review"`, which loads this skill from `.claude/skills/`.
-
-### 2. Install the hook
-
-The hook ships as **two files** in [`hooks/`](hooks/):
-
-- `pr-review-run` — the shared review body (reads the pre-push stdin, runs the review, gates on the verdict). One source of truth.
-- `pre-push` — a thin **global wrapper** that delegates to a repo-local hook first, then runs `pr-review-run`.
-
-**This repo only** (recommended — try it before rolling out). No wrapper needed; install the
-body directly as the repo's hook:
-
-```bash
-# from the orby-agent-config clone:
-cp hooks/pr-review-run ~/work/your-repo/.git/hooks/pre-push
-chmod +x ~/work/your-repo/.git/hooks/pre-push
-```
-
-**All your repos at once** (global) — git's `core.hooksPath` makes every repo use the wrapper,
-which delegates to a repo-local `.git/hooks/pre-push` first so existing per-repo hooks keep
-working:
-
-```bash
-mkdir -p ~/.config/git/hooks
-cp hooks/pre-push hooks/pr-review-run ~/.config/git/hooks/
-chmod +x ~/.config/git/hooks/pre-push ~/.config/git/hooks/pr-review-run
-git config --global core.hooksPath ~/.config/git/hooks
-```
-
-**Husky repos** — git points `core.hooksPath` at `.husky/`, so the global wrapper above is
-bypassed. Call the body directly from `.husky/pre-push` instead (assuming `pr-review-run` is on
-your `PATH` or installed at `~/.config/git/hooks/`):
-
-```sh
-# .husky/pre-push
-exec ~/.config/git/hooks/pr-review-run "$@"
-```
-
-### 3. Use it
-
-```bash
-git push                      # review runs automatically
-git push --no-verify          # skip all hooks
-SKIP_PR_REVIEW=1 git push     # skip just this review
-claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
-```
-
-### Tuning
-
-- **Change the gate** — by default only `VERDICT: BLOCK` (a `high`-severity finding) rejects
-  the push. Edit the `grep '^VERDICT: BLOCK'` line in `hooks/pre-push`, or adjust the severity
-  rules in `catalog/skills/pr-review/SKILL.md`.
-- **Large diffs** are capped at 4000 lines and the review times out after 180s — both fail
-  *open* (push allowed) so a slow review never traps you.
-
----
-
-## Cheat sheet
-
-| Command | What it does |
-| --- | --- |
-| `oac init` | Interactive setup — pick agents/editors, stacks, skills; writes all config + the manifest |
-| `oac sync` | Regenerate every managed config file from the current catalog + manifest |
-| `oac list` | Show all targets, skills, and stacks |
-| `oac list targets` / `list skills` / `list stacks` | Show just one category |
-| `oac add-skill <name>` | Add a catalog skill to this project |
-| `oac remove-skill <name>` | Remove a skill (and its installed folder) |
-| `oac doctor` | Verify config: missing files, broken managed blocks, stale catalog |
-| `oac --help` | Full usage |
-| `oac --version` | Print version |
-
-### Options
-
-| Flag | Meaning |
-| --- | --- |
-| `--dir=<path>` | Operate on another directory (default: current) |
-| `--targets=a,b` | Agents/editors: `claude`, `codex`, `cursor`, `copilot`, `windsurf` |
-| `--stacks=a,b` | Stack rule fragments (see `oac list stacks`) |
-| `--skills=a,b` | Skills to install |
-| `--yes`, `-y` | Non-interactive; use defaults / flag values |
 
 ---
 
@@ -259,8 +151,10 @@ oac init --yes --targets=claude,codex,ollama \
 Fully cross-platform. The CLI uses only Node's `fs`/`path` (no shell, no symlinks),
 and every Ollama launcher ships as both `.sh` (macOS/Linux) and `.ps1` (Windows
 PowerShell 5.1+/7). Line endings are preserved per-file, and the executable bit is set
-where the OS supports it (a no-op on Windows). Run via `npx github:OrbyJets/orby-agent-config`
+where the OS supports it (a no-op on Windows). Run via `npx github:OWNER/open-agent-config`
 (or the SSH form) on any OS.
+
+---
 
 ---
 
@@ -274,7 +168,7 @@ where the OS supports it (a no-op on Windows). Run via `npx github:OrbyJets/orby
   copied into a project when the skill is selected — including any `scripts/`,
   `references/`, `assets/`, `templates/`, or `agents/` subfolders.
 
-  The Tobii skill format is supported directly: drop a skill folder that contains both
+  The `skill.json` metadata format is supported directly: drop a skill folder that contains both
   `SKILL.md` and a `skill.json` (`name`, `version`, `description`, `tags`, `entrypoint`)
   and `oac` reads its metadata from `skill.json`, falling back to the `SKILL.md`
   frontmatter (folded YAML `description: >` blocks included).
@@ -294,4 +188,113 @@ where the OS supports it (a no-op on Windows). Run via `npx github:OrbyJets/orby
 
 After editing the catalog, run `oac sync` in each project to roll out the change.
 
-See [`docs/CHEATSHEET.md`](docs/CHEATSHEET.md) for the condensed command reference.
+---
+
+## Pre-push PR review hook
+
+Get a **Copilot-style PR review on every `git push`**, before the code leaves your machine.
+A git `pre-push` hook runs the [`pr-review`](catalog/skills/pr-review/SKILL.md) skill against
+the diff being pushed (headless Claude Code), prints a summary + severity-tagged findings,
+and **blocks the push only when a high-severity bug or security issue is found**.
+
+**Requires:** the [`claude`](https://docs.claude.com/en/docs/claude-code) CLI on your `PATH`.
+If it's missing, the hook prints a notice and lets the push through (never blocks you).
+
+### 1. Install the skill into your repo
+
+```bash
+oac add-skill pr-review          # → .claude/skills/pr-review/   (run inside the repo)
+```
+
+The hook calls `claude -p "/pr-review"`, which loads this skill from `.claude/skills/`.
+
+### 2. Install the hook
+
+The hook ships as **two files** in [`hooks/`](hooks/):
+
+- `pr-review-run` — the shared review body (reads the pre-push stdin, runs the review, gates on the verdict). One source of truth.
+- `pre-push` — a thin **global wrapper** that delegates to a repo-local hook first, then runs `pr-review-run`.
+
+**This repo only** (recommended — try it before rolling out). No wrapper needed; install the
+body directly as the repo's hook:
+
+```bash
+# from the open-agent-config clone:
+cp hooks/pr-review-run ~/work/your-repo/.git/hooks/pre-push
+chmod +x ~/work/your-repo/.git/hooks/pre-push
+```
+
+**All your repos at once** (global) — git's `core.hooksPath` makes every repo use the wrapper,
+which delegates to a repo-local `.git/hooks/pre-push` first so existing per-repo hooks keep
+working:
+
+```bash
+mkdir -p ~/.config/git/hooks
+cp hooks/pre-push hooks/pr-review-run ~/.config/git/hooks/
+chmod +x ~/.config/git/hooks/pre-push ~/.config/git/hooks/pr-review-run
+git config --global core.hooksPath ~/.config/git/hooks
+```
+
+**Husky repos** — git points `core.hooksPath` at `.husky/`, so the global wrapper above is
+bypassed. Call the body directly from `.husky/pre-push` instead (assuming `pr-review-run` is on
+your `PATH` or installed at `~/.config/git/hooks/`):
+
+```sh
+# .husky/pre-push
+exec ~/.config/git/hooks/pr-review-run "$@"
+```
+
+### 3. Use it
+
+```bash
+git push                      # review runs automatically
+git push --no-verify          # skip all hooks
+SKIP_PR_REVIEW=1 git push     # skip just this review
+claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
+```
+
+### Tuning
+
+- **Change the gate** — by default only `VERDICT: BLOCK` (a `high`-severity finding) rejects
+  the push. Edit the `grep '^VERDICT: BLOCK'` line in `hooks/pre-push`, or adjust the severity
+  rules in `catalog/skills/pr-review/SKILL.md`.
+- **Large diffs** are capped at 4000 lines and the review times out after 180s — both fail
+  *open* (push allowed) so a slow review never traps you.
+
+---
+
+---
+
+## Command reference
+
+| Command | What it does |
+| --- | --- |
+| `oac init` | Interactive setup — editors, stacks, skills; writes all config + the manifest |
+| `oac sync` | Regenerate every managed config file from the current catalog + manifest |
+| `oac list [targets\|skills\|stacks]` | Show what the catalog offers |
+| `oac add-skill <name>` | Add a catalog skill to this project |
+| `oac remove-skill <name>` | Remove a skill and its installed folder |
+| `oac import-skill <src>` | Import a skill from a path or git URL into the catalog |
+| `oac doctor` | Verify config: missing files, broken managed blocks, stale catalog |
+
+| Flag | Meaning |
+| --- | --- |
+| `--dir=<path>` | Operate on another directory (default: current) |
+| `--targets=a,b` | `claude`, `codex`, `cursor`, `copilot`, `windsurf`, `ollama` |
+| `--stacks=a,b` | Stack rule fragments (see `oac list stacks`) |
+| `--skills=a,b` | Skills to install |
+| `--skills-only` | Install skills + manifest only; never write or modify rule files |
+| `--yes`, `-y` | Non-interactive; use defaults and flag values |
+
+Full reference: [`CHEATSHEET.md`](CHEATSHEET.md).
+
+---
+
+## Contributing
+
+Rules and skills live in `catalog/`. Add a markdown fragment, run `npm test`, open a PR.
+New editor targets go in `catalog/targets.json` plus a renderer in `src/`.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

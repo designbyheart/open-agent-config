@@ -43,7 +43,7 @@ function version() {
 }
 
 const HELP = `
-  orby-agent-config (oac) — configure any AI agent/editor from one rules source
+  open-agent-config (oac) — configure any AI agent/editor from one rules source
 
   Usage
     oac <command> [options]
@@ -68,7 +68,7 @@ const HELP = `
     --version, -v        Show version
 
   Examples
-    npx orby-agent-config init
+    npx open-agent-config init
     oac init --yes --targets=claude,cursor,codex
     oac sync
     oac list targets

@@ -13,7 +13,7 @@ export const OLLAMA_APPS_FILE = path.join(CATALOG_DIR, 'ollama-apps.json');
 /**
  * Parse a leading `---` frontmatter block. Handles flat `key: value` pairs and
  * YAML folded/literal scalars (`key: >` or `key: |` followed by indented lines),
- * which the Tobii skill format uses for multi-line descriptions.
+ * which some skill formats use for multi-line descriptions.
  */
 export function parseFrontmatter(text) {
   const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
@@ -69,7 +69,7 @@ export function loadStacks() {
 
 /**
  * Master skills catalog (catalog/skills/<name>/). A skill needs a `SKILL.md`;
- * an optional `skill.json` (Tobii format) is preferred for metadata when present.
+ * an optional `skill.json` is preferred for metadata when present.
  * The whole folder — scripts/, references/, assets/, agents/ — is copied on install.
  */
 export function loadSkills() {
