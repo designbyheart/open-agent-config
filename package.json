@@ -11,11 +11,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OWNER/open-agent-config.git"
+    "url": "git+https://github.com/designbyheart/open-agent-config.git"
   },
-  "homepage": "https://github.com/OWNER/open-agent-config#readme",
+  "homepage": "https://github.com/designbyheart/open-agent-config#readme",
   "bugs": {
-    "url": "https://github.com/OWNER/open-agent-config/issues"
+    "url": "https://github.com/designbyheart/open-agent-config/issues"
   },
   "files": [
     "bin",

@@ -1,14 +1,24 @@
 import path from 'node:path';
 import fs from 'node:fs';
-import { exists, readText, writeText } from './fsutil.js';
+import { exists, readText, writeText, rmrf } from './fsutil.js';
 
 export const MANIFEST_NAME = 'agent.config.json';
 /** Manifest names written by earlier versions; still read for backward compatibility. */
 export const LEGACY_MANIFEST_NAMES = ['orby-agent.config.json'];
 export const SCHEMA_VERSION = 1;
 
+/** Where a manifest is written. Always the current name. */
 export function manifestPath(projectDir) {
-  const current = path.join(projectDir, MANIFEST_NAME);
+  return path.join(projectDir, MANIFEST_NAME);
+}
+
+/**
+ * Where a manifest is read from: the current name when present, otherwise a
+ * name written by an earlier version. Returns the current path when neither
+ * exists, so callers can report the expected filename.
+ */
+export function manifestReadPath(projectDir) {
+  const current = manifestPath(projectDir);
   if (exists(current)) return current;
   for (const legacy of LEGACY_MANIFEST_NAMES) {
     const legacyPath = path.join(projectDir, legacy);
@@ -18,11 +28,11 @@ export function manifestPath(projectDir) {
 }
 
 export function manifestExists(projectDir) {
-  return exists(manifestPath(projectDir));
+  return exists(manifestReadPath(projectDir));
 }
 
 export function readManifest(projectDir) {
-  const p = manifestPath(projectDir);
+  const p = manifestReadPath(projectDir);
   if (!exists(p)) return null;
   try {
     return JSON.parse(readText(p));
@@ -65,4 +75,10 @@ export function makeManifest({
 
 export function writeManifest(projectDir, manifest) {
   writeText(manifestPath(projectDir), JSON.stringify(manifest, null, 2) + '\n');
+  // Migration: a project initialised by an older version keeps its manifest
+  // under the previous name. Once the current one is written, drop the old.
+  for (const legacy of LEGACY_MANIFEST_NAMES) {
+    const legacyPath = path.join(projectDir, legacy);
+    if (exists(legacyPath)) rmrf(legacyPath);
+  }
 }

@@ -19,10 +19,10 @@ Requires **Node.js ≥ 18**.
 
 ```bash
 # run it without installing
-npx github:OWNER/open-agent-config init
+npx github:designbyheart/open-agent-config init
 
 # or install the CLI globally
-npm install -g github:OWNER/open-agent-config
+npm install -g github:designbyheart/open-agent-config
 oac init
 ```
 
@@ -41,7 +41,7 @@ oac init --yes --targets=claude,cursor,codex --stacks=nextjs --skills=code-revie
 
 ![oac init and oac doctor](media/oac-init.png)
 
-Pin a version by appending `#<ref>`, e.g. `npm install -g github:OWNER/open-agent-config#v0.1.0`.
+Pin a version by appending `#<ref>`, e.g. `npm install -g github:designbyheart/open-agent-config#v0.1.0`.
 To uninstall: `npm uninstall -g open-agent-config`.
 
 **Working inside a clone** (to edit the catalog or CLI):
@@ -151,7 +151,7 @@ oac init --yes --targets=claude,codex,ollama \
 Fully cross-platform. The CLI uses only Node's `fs`/`path` (no shell, no symlinks),
 and every Ollama launcher ships as both `.sh` (macOS/Linux) and `.ps1` (Windows
 PowerShell 5.1+/7). Line endings are preserved per-file, and the executable bit is set
-where the OS supports it (a no-op on Windows). Run via `npx github:OWNER/open-agent-config`
+where the OS supports it (a no-op on Windows). Run via `npx github:designbyheart/open-agent-config`
 (or the SSH form) on any OS.
 
 ---

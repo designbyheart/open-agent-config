@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { PKG_ROOT } from '../paths.js';
 import { listFlag } from '../index.js';
 import { resolveProjectDir } from '../fsutil.js';
-import { readManifest, makeManifest, writeManifest } from '../manifest.js';
+import { readManifest, makeManifest, writeManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource, loadTargets, loadSkills, loadStacks, loadOllamaApps } from '../catalog.js';
 import { isKnownTarget } from '../targets/registry.js';
 
@@ -29,7 +29,18 @@ function manifestFromFlags(projectDir, flags, existing) {
           .filter((s) => s.id !== '_example')
           .map((s) => s.id)
       : skillsFlag || existing?.skills || [];
+  const knownSkills = new Set(loadSkills().map((s) => s.id));
+  const unknownSkills = skills.filter((s) => !knownSkills.has(s));
+  if (unknownSkills.length) {
+    throw new Error(`Unknown skill(s): ${unknownSkills.join(', ')}. See "oac list skills".`);
+  }
+
   const stacks = listFlag(flags.stacks) || existing?.stacks || [];
+  const knownStacks = new Set(loadStacks().map((s) => s.id));
+  const unknownStacks = stacks.filter((s) => !knownStacks.has(s));
+  if (unknownStacks.length) {
+    throw new Error(`Unknown stack(s): ${unknownStacks.join(', ')}. See "oac list stacks".`);
+  }
   const name = (typeof flags.name === 'string' && flags.name) || existing?.project?.name || path.basename(projectDir);
 
   // Ollama: only meaningful when the ollama target is selected.
@@ -98,6 +109,6 @@ export async function cmdInit(ctx) {
   }
   console.log(`  ✔ Wrote ${written.length} path(s):`);
   for (const w of written) console.log(`      ${w}`);
-  console.log(`\n  Manifest: agent.config.json`);
+  console.log(`\n  Manifest: ${MANIFEST_NAME}`);
   console.log(`  Re-run after catalog updates with:  oac sync\n`);
 }
