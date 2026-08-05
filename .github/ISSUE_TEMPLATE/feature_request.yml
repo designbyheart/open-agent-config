@@ -1,0 +1,23 @@
+name: Feature request
+description: A new target, rule, skill, or CLI behaviour
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you hitting
+      description: Describe the situation, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+  - type: checkboxes
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - label: A new editor or agent target
+        - label: A new catalog rule or skill
+        - label: CLI behaviour

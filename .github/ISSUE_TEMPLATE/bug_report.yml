@@ -1,0 +1,29 @@
+name: Bug report
+description: Something behaved differently than documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: Include the exact command you ran and the output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: "oac 0.1.0, node 20.11, macOS 14"
+    validations:
+      required: true
+  - type: textarea
+    id: targets
+    attributes:
+      label: Selected targets and skills
+      description: The relevant part of your agent.config.json, if you have one.

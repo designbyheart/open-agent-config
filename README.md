@@ -1,5 +1,7 @@
 # open-agent-config (`oac`)
 
+[![test](https://github.com/designbyheart/open-agent-config/actions/workflows/test.yml/badge.svg)](https://github.com/designbyheart/open-agent-config/actions/workflows/test.yml) [![node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 **One rules source. Every AI editor.** Write your engineering rules and skills once, and
 `oac` generates the config each tool actually reads — `CLAUDE.md`, `AGENTS.md`,
 `.cursor/rules/*.mdc`, `.github/copilot-instructions.md`, `.windsurfrules` — plus copies
