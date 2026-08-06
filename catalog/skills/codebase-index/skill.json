@@ -1,0 +1,17 @@
+{
+  "name": "codebase-index",
+  "version": "1.0.0",
+  "description": "Build and maintain a repo-local knowledge index (architecture map, glossary, business rules, decisions, gotchas) that agents read before editing, with every rule citing its enforcement site.",
+  "tags": [
+    "documentation",
+    "onboarding",
+    "business-rules",
+    "knowledge",
+    "precision"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

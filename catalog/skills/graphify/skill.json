@@ -1,0 +1,18 @@
+{
+  "name": "graphify",
+  "version": "1.0.0",
+  "description": "Use Graphify (tree-sitter knowledge graph for codebases) to traverse a repository instead of grepping it: build, query, path, explain, and the MCP tools, with EXTRACTED vs INFERRED edge discipline.",
+  "tags": [
+    "codebase",
+    "knowledge-graph",
+    "graphify",
+    "onboarding",
+    "impact-analysis",
+    "mcp"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}
