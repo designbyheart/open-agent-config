@@ -21,20 +21,27 @@ root=$(git rev-parse --show-toplevel)
 # them so every stage below sees the same input.
 refs=$(cat)
 
+# Re-emit them with a trailing newline for real input, but stay genuinely empty
+# when there was none — an empty line would read as "run by hand".
+emit_refs() {
+  [ -n "$refs" ] && printf '%s\n' "$refs"
+  return 0
+}
+
 # 1. Preserve git-lfs behaviour if this repo is LFS-enabled.
 if [ -e "$root/.gitattributes" ] && grep -q 'filter=lfs' "$root/.gitattributes" 2>/dev/null; then
   if command -v git-lfs >/dev/null 2>&1; then
-    printf '%s\n' "$refs" | git lfs pre-push "$@" || exit $?
+    emit_refs | git lfs pre-push "$@" || exit $?
   fi
 fi
 
 # 2. Version guard first: a push that will be stopped should not pay for a review.
-printf '%s\n' "$refs" | node "$root/hooks/version-bump.mjs" || exit $?
+emit_refs | node "$root/hooks/version-bump.mjs" || exit $?
 
 # 3. PR review, from this repo or from the global hooks directory.
 for candidate in "$root/hooks/pr-review-run" "${HOME}/.config/git/hooks/pr-review-run"; do
   if [ -x "$candidate" ]; then
-    printf '%s\n' "$refs" | "$candidate" "$@"
+    emit_refs | "$candidate" "$@"
     exit $?
   fi
 done

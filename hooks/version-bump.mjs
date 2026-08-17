@@ -71,6 +71,42 @@ function versionAt(root, rev) {
 }
 
 /**
+ * What `tip` actually changes relative to `base`, ignoring a pure patch bump.
+ * Returns 'content' when real work is waiting, 'version-only' when the sole
+ * difference is package.json's patch, or 'nothing' when the trees match.
+ *
+ * Without this, a version commit is itself something to push, so the next push
+ * would bump again — one commit per push, forever, with no work in any of them.
+ */
+export function pendingWork(root, base, tip) {
+  const diff = git(['diff', '--name-only', `${base}...${tip}`], { cwd: root });
+  if (diff.status !== 0) return 'content'; // cannot tell: assume there is work
+  const files = diff.stdout.split('\n').map((f) => f.trim()).filter(Boolean);
+
+  if (!files.length) return 'nothing';
+  if (files.length > 1 || files[0] !== 'package.json') return 'content';
+
+  const before = git(['show', `${base}:package.json`], { cwd: root });
+  const after = git(['show', `${tip}:package.json`], { cwd: root });
+  if (before.status !== 0 || after.status !== 0) return 'content';
+
+  try {
+    const a = JSON.parse(before.stdout);
+    const b = JSON.parse(after.stdout);
+    const av = parseSemver(a.version);
+    const bv = parseSemver(b.version);
+    delete a.version;
+    delete b.version;
+    if (JSON.stringify(a) !== JSON.stringify(b)) return 'content';
+    // A deliberate minor or major release is worth pushing on its own.
+    if (av && bv && (av[0] !== bv[0] || av[1] !== bv[1])) return 'content';
+    return 'version-only';
+  } catch {
+    return 'content';
+  }
+}
+
+/**
  * True when the working package.json differs from HEAD's only in the version
  * field — the ordinary "I typed a version" case, safe to overwrite.
  */
@@ -89,14 +125,21 @@ function onlyVersionDiffers(root, raw) {
   }
 }
 
-/** True when every ref on stdin is a deletion or a tag — nothing to version. */
-function nothingToVersion(stdin) {
-  const lines = stdin.split('\n').map((l) => l.trim()).filter(Boolean);
-  if (!lines.length) return false; // no stdin (manual run): proceed
-  return lines.every((line) => {
+/**
+ * The branches being pushed, as short names. Deletions and tags carry no version
+ * meaning and are dropped. `null` means no refs were given at all — a manual run.
+ */
+export function pushedBranches(stdin) {
+  const lines = String(stdin).split('\n').map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return null;
+  const branches = [];
+  for (const line of lines) {
     const [localRef, localSha] = line.split(/\s+/);
-    return /^0+$/.test(localSha || '') || String(localRef).startsWith('refs/tags/');
-  });
+    if (/^0+$/.test(localSha || '')) continue; // deletion
+    if (!String(localRef).startsWith('refs/heads/')) continue; // tags and everything else
+    branches.push(String(localRef).slice('refs/heads/'.length));
+  }
+  return branches;
 }
 
 function inProgress(root, name) {
@@ -106,7 +149,10 @@ function inProgress(root, name) {
 
 export function runHook(root, stdin = '') {
   if (process.env.SKIP_VERSION_BUMP === '1') return 0;
-  if (nothingToVersion(stdin)) return 0;
+
+  const branches = pushedBranches(stdin);
+  if (branches && !branches.length) return 0; // only tags or deletions
+
   if (inProgress(root, 'MERGE_HEAD') || inProgress(root, 'rebase-merge') || inProgress(root, 'rebase-apply')) {
     out('\n  version: merge or rebase in progress — skipping\n\n');
     return 0;
@@ -118,9 +164,16 @@ export function runHook(root, stdin = '') {
   const branch = git(['symbolic-ref', '--quiet', '--short', 'HEAD'], { cwd: root }).stdout.trim();
   if (!branch) fail('HEAD is detached — check out a branch before pushing');
 
+  // A branch that is not checked out cannot be committed to. Check its version
+  // rather than silently letting it through, and never write to another branch.
+  const offBranch = branches !== null && !branches.includes(branch);
+
   // Refresh the base ref so the comparison is against what is really published.
   const remoteName = BASE_REF.split('/')[0];
-  git(['fetch', '--quiet', remoteName], { cwd: root });
+  const fetched = git(['fetch', '--quiet', remoteName], { cwd: root });
+  if (fetched.status !== 0) {
+    out(`\n  version: could not fetch ${remoteName} — comparing against a possibly stale ${BASE_REF}\n`);
+  }
 
   if (git(['rev-parse', '--verify', '--quiet', BASE_REF], { cwd: root }).status !== 0) {
     out(`\n  version: ${BASE_REF} not found — nothing to compare against, skipping\n\n`);
@@ -129,13 +182,31 @@ export function runHook(root, stdin = '') {
 
   const remote = versionAt(root, BASE_REF);
   const raw = readFileSync(pkgPath, 'utf8');
+
+  // For a branch that is not checked out, judge the version it actually carries,
+  // not whatever happens to be in the working tree.
   let local;
-  try {
-    local = parseSemver(JSON.parse(raw).version);
-  } catch {
-    fail('package.json is not valid JSON');
+  if (offBranch) {
+    local = versionAt(root, branches[0]);
+    if (!local) fail(`no readable version in package.json on ${branches[0]}`);
+  } else {
+    try {
+      local = parseSemver(JSON.parse(raw).version);
+    } catch {
+      fail('package.json is not valid JSON');
+    }
+    if (!local) fail('package.json has no valid x.y.z version');
   }
-  if (!local) fail('package.json has no valid x.y.z version');
+
+  // Nothing worth releasing? Say so instead of minting another version.
+  const pending = pendingWork(root, BASE_REF, offBranch ? branches[0] : 'HEAD');
+  if (pending !== 'content') {
+    const why =
+      pending === 'nothing'
+        ? `nothing to push — ${offBranch ? branches[0] : branch} matches ${BASE_REF}.`
+        : `no changes to release — the only difference from ${BASE_REF} is the version patch.`;
+    fail(`${why}\n    Commit some work first, or push with --no-verify.`);
+  }
 
   const required = requiredVersion(remote, local);
   if (!required) {
@@ -147,25 +218,39 @@ export function runHook(root, stdin = '') {
     return 0;
   }
 
+  if (offBranch) {
+    fail(
+      `${branches.join(', ')} carries ${fmt(local)} but ${BASE_REF} is at ${fmt(remote)}.\n` +
+        `    Check that branch out and push from it, so the bump lands on the right branch.`
+    );
+  }
+
   // The version has to move. Write it, commit it, and stop this push.
-  // An uncommitted version edit is the normal flow and is safe to overwrite;
-  // any *other* uncommitted change would be swept into the version commit.
-  const dirty = git(['diff', '--name-only', '--', 'package.json'], { cwd: root }).stdout.trim();
+  // An uncommitted version edit is the normal flow and is safe to overwrite; any
+  // *other* pending change — staged or not — would be swept into the version commit,
+  // so compare against HEAD rather than the index.
+  const dirty = git(['diff', 'HEAD', '--name-only', '--', 'package.json'], { cwd: root }).stdout.trim();
   if (dirty && !onlyVersionDiffers(root, raw)) {
     fail(
-      `package.json has uncommitted changes beyond the version — refusing to fold\n` +
+      `package.json has pending changes beyond the version — refusing to fold\n` +
         `    them into a version commit. Commit or stash them, then push again.`
     );
   }
 
-  writeFileSync(pkgPath, raw.replace(/"version":\s*"[^"]*"/, `"version": "${fmt(required)}"`));
+  const rewritten = raw.replace(/"version"\s*:\s*"[^"]*"/, `"version": "${fmt(required)}"`);
+  if (rewritten === raw) {
+    fail(`could not find a "version" field to rewrite in package.json`);
+  }
+  writeFileSync(pkgPath, rewritten);
+
   const committed = git(
     ['commit', '--no-verify', '-m', `chore: v${fmt(required)}`, '--', 'package.json'],
     { cwd: root }
   );
   if (committed.status !== 0) {
-    git(['checkout', '--', 'package.json'], { cwd: root });
-    fail(`could not create the version commit:\n${committed.stderr.trim()}`);
+    writeFileSync(pkgPath, raw); // restore exactly what was there, not the index
+    const why = [committed.stdout, committed.stderr].map((s) => String(s).trim()).filter(Boolean).join('\n');
+    fail(`could not create the version commit:\n${why || '(git said nothing)'}`);
   }
 
   const from = remote ? fmt(remote) : '—';

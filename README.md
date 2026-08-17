@@ -146,12 +146,31 @@ $ git push
   version: 0.1.1 > origin/main 0.1.0 ✔
 ```
 
-Because the reference is `origin/main`, two branches cannot both claim the same patch.
-Land one, then branch again from the updated main.
+The reference is always `origin/main`, so branches cut from the same base all compute the
+same next patch. The first to land wins; rebase the rest and push again to be renumbered.
+On a long-lived branch this adds one `chore: vX.Y.Z` commit per push and `package.json`
+will conflict at merge time — resolve it in favour of `main` and let the next push
+renumber. Short branches avoid the problem entirely.
 
-It refuses to run when a merge or rebase is in progress, on tag pushes and branch
-deletions, and when `package.json` has uncommitted changes *beyond* the version — an
-uncommitted version edit is the normal case and is simply corrected.
+A push has to carry actual work. If the only difference from `origin/main` is the version
+patch — or there is no difference at all — the push is refused rather than given a new
+number:
+
+```
+$ git push
+  ✖ version: no changes to release — the only difference from origin/main is the version patch.
+    Commit some work first, or push with --no-verify.
+```
+
+Without that, a version commit would itself be something to push, and the next push would
+bump again: one commit per push, forever, none of them containing work. A deliberate minor
+or major release is exempt — that is worth pushing on its own.
+
+It stays out of the way when a merge or rebase is in progress, on tag pushes and branch
+deletions, and when the branch being pushed is not the one checked out — it verifies that
+branch's version and tells you to check it out rather than committing to the wrong place.
+A push is refused when `package.json` has pending changes *beyond* the version, staged or
+not; an uncommitted version edit is the normal case and is simply corrected.
 
 `npm run hooks:install` sets a **repo-local** `core.hooksPath`, which beats any global
 one. That is deliberate: a global install would rewrite `package.json` in every repo you

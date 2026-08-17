@@ -39,13 +39,22 @@ function repoWithRemote(mainVersion = '0.1.0') {
   return { clone, seed };
 }
 
+/** Commit a real change, so there is something worth releasing. */
+function commitWork(dir, name = 'feature.txt') {
+  fs.writeFileSync(path.join(dir, name), `work ${name}\n`);
+  git(dir, 'add', '-A');
+  git(dir, 'commit', '-m', `add ${name}`);
+}
+
 /** Run the hook the way git does: refs on stdin. */
 function runHook(dir, { stdin = 'refs/heads/main abc123 refs/heads/main def456\n', env = {} } = {}) {
   return spawnSync(process.execPath, [HOOK], {
     cwd: dir,
     input: stdin,
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    // Cleared explicitly: an exported SKIP_VERSION_BUMP would make assertions
+    // pass for the wrong reason.
+    env: { ...process.env, SKIP_VERSION_BUMP: '', ...env },
   });
 }
 
@@ -76,6 +85,7 @@ test('parseSemver rejects anything that is not x.y.z', () => {
 
 test('a matching version is bumped, committed, and the push is stopped', () => {
   const { clone } = repoWithRemote('0.1.0');
+  commitWork(clone);
   const r = runHook(clone);
 
   assert.equal(r.status, 1, 'the push must be stopped so the commit can join the next one');
@@ -90,6 +100,7 @@ test('a matching version is bumped, committed, and the push is stopped', () => {
 
 test('the second push passes with no further commits', () => {
   const { clone } = repoWithRemote('0.1.0');
+  commitWork(clone);
   assert.equal(runHook(clone).status, 1);
   const afterBump = git(clone, 'rev-parse', 'HEAD').stdout.trim();
 
@@ -101,6 +112,7 @@ test('the second push passes with no further commits', () => {
 
 test('a hand-set patch is overridden using the remote as reference', () => {
   const { clone } = repoWithRemote('1.0.1');
+  commitWork(clone);
   writeVersion(clone, '1.0.10');
   git(clone, 'commit', '-am', 'hand-set the patch');
 
@@ -134,6 +146,7 @@ test('a version behind the remote is refused outright', () => {
 
 test('an uncommitted version edit is corrected, not refused', () => {
   const { clone } = repoWithRemote('0.1.0');
+  commitWork(clone);
   writeVersion(clone, '0.1.10'); // typed by hand, never committed
 
   const r = runHook(clone);
@@ -145,6 +158,7 @@ test('an uncommitted version edit is corrected, not refused', () => {
 
 test('other uncommitted package.json changes are refused rather than folded in', () => {
   const { clone } = repoWithRemote('0.1.0');
+  commitWork(clone);
   const pkg = JSON.parse(fs.readFileSync(path.join(clone, 'package.json'), 'utf8'));
   pkg.description = 'work in progress';
   fs.writeFileSync(path.join(clone, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
@@ -153,6 +167,98 @@ test('other uncommitted package.json changes are refused rather than folded in',
   assert.equal(r.status, 1);
   assert.match(r.stderr, /beyond the version/);
   assert.match(fs.readFileSync(path.join(clone, 'package.json'), 'utf8'), /work in progress/, 'edit survives');
+});
+
+test('a version-only push is refused instead of bumped again', () => {
+  const { clone } = repoWithRemote('0.1.0');
+
+  // A real change, then the bump the hook makes for it.
+  fs.writeFileSync(path.join(clone, 'feature.txt'), 'work\n');
+  git(clone, 'add', '-A');
+  git(clone, 'commit', '-m', 'real work');
+  assert.equal(runHook(clone).status, 1, 'first push bumps');
+  assert.equal(versionOf(clone), '0.1.1');
+
+  // Ship it, so origin/main now has both the work and 0.1.1.
+  git(clone, 'push', '-q', 'origin', 'main');
+  git(clone, 'fetch', '-q', 'origin');
+
+  // Push again with nothing new: no bump, no commit, a plain refusal.
+  const head = git(clone, 'rev-parse', 'HEAD').stdout.trim();
+  const again = runHook(clone);
+  assert.equal(again.status, 1);
+  assert.match(again.stderr, /nothing to push/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD').stdout.trim(), head, 'no ratchet commit');
+  assert.equal(versionOf(clone), '0.1.1', 'version untouched');
+});
+
+test('a lone version commit does not justify another version commit', () => {
+  const { clone } = repoWithRemote('0.1.0');
+
+  // Exactly the state the ratchet produced: a version commit and nothing else.
+  writeVersion(clone, '0.1.1');
+  git(clone, 'commit', '-am', 'chore: v0.1.1');
+
+  const head = git(clone, 'rev-parse', 'HEAD').stdout.trim();
+  const r = runHook(clone);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /no changes to release/);
+  assert.equal(git(clone, 'rev-parse', 'HEAD').stdout.trim(), head, 'no second version commit');
+});
+
+test('a deliberate minor release may be pushed on its own', () => {
+  const { clone } = repoWithRemote('0.1.7');
+  writeVersion(clone, '0.2.0');
+  git(clone, 'commit', '-am', 'release 0.2.0');
+
+  const r = runHook(clone);
+  assert.equal(r.status, 0, 'a minor bump is a release in its own right');
+  assert.equal(versionOf(clone), '0.2.0');
+});
+
+test('staged changes are caught, not folded into the version commit', () => {
+  const { clone } = repoWithRemote('0.1.0');
+  commitWork(clone);
+  const pkgPath = path.join(clone, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  pkg.description = 'work in progress';
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+  git(clone, 'add', 'package.json'); // staged — invisible to a plain `git diff`
+
+  const r = runHook(clone);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /pending changes beyond the version/);
+  assert.match(fs.readFileSync(pkgPath, 'utf8'), /work in progress/, 'the staged edit survives');
+  assert.doesNotMatch(git(clone, 'log', '-1', '--pretty=%s').stdout, /^chore: v/, 'no version commit was made');
+});
+
+test('pushing a branch other than the checked-out one never commits to HEAD', () => {
+  const { clone } = repoWithRemote('0.1.0');
+  git(clone, 'checkout', '-q', '-b', 'feature-a');
+  commitWork(clone); // real work on the branch, still carrying 0.1.0
+  git(clone, 'checkout', '-q', 'main'); // and we push it from main
+  const mainBefore = git(clone, 'rev-parse', 'main').stdout.trim();
+
+  const r = runHook(clone, {
+    stdin: 'refs/heads/feature-a abc123 refs/heads/feature-a 0000000000000000000000000000000000000000\n',
+  });
+
+  assert.equal(r.status, 1, 'a stale version on the pushed branch must not pass');
+  assert.match(r.stderr, /feature-a carries 0\.1\.0/);
+  assert.match(r.stderr, /Check that branch out/);
+  assert.equal(git(clone, 'rev-parse', 'main').stdout.trim(), mainBefore, 'main must not gain a commit');
+  assert.equal(versionOf(clone), '0.1.0', 'the working tree is untouched');
+});
+
+test('a version field with unusual spacing is still rewritten', () => {
+  const { clone } = repoWithRemote('0.1.0');
+  commitWork(clone);
+  fs.writeFileSync(path.join(clone, 'package.json'), '{\n  "name": "demo",\n  "version" : "0.1.0"\n}\n');
+  git(clone, 'commit', '-am', 'reformat');
+
+  const r = runHook(clone);
+  assert.equal(r.status, 1);
+  assert.equal(versionOf(clone), '0.1.1', 'a space before the colon must not silently no-op');
 });
 
 test('SKIP_VERSION_BUMP and tag pushes are left alone', () => {
@@ -165,6 +271,42 @@ test('SKIP_VERSION_BUMP and tag pushes are left alone', () => {
   const tagPush = runHook(clone, { stdin: 'refs/tags/v1 abc123 refs/tags/v1 000000\n' });
   assert.equal(tagPush.status, 0);
   assert.equal(versionOf(clone), '0.1.0', 'tag pushes carry no version meaning');
+});
+
+test('the hook chain stops at the version guard before spending a review', () => {
+  const { clone } = repoWithRemote('0.1.0');
+  commitWork(clone);
+
+  // Wire up the real chain: .githooks/pre-push, the guard, and a stub review that
+  // leaves a marker file if it ever runs.
+  fs.mkdirSync(path.join(clone, '.githooks'), { recursive: true });
+  fs.mkdirSync(path.join(clone, 'hooks'), { recursive: true });
+  fs.copyFileSync(path.join(REPO, '.githooks', 'pre-push'), path.join(clone, '.githooks', 'pre-push'));
+  fs.copyFileSync(HOOK, path.join(clone, 'hooks', 'version-bump.mjs'));
+  const marker = path.join(clone, 'review-ran');
+  fs.writeFileSync(path.join(clone, 'hooks', 'pr-review-run'), `#!/bin/sh\ntouch "${marker}"\n`);
+  fs.chmodSync(path.join(clone, 'hooks', 'pr-review-run'), 0o755);
+  fs.chmodSync(path.join(clone, '.githooks', 'pre-push'), 0o755);
+
+  const blocked = spawnSync(path.join(clone, '.githooks', 'pre-push'), ['origin', 'url'], {
+    cwd: clone,
+    input: 'refs/heads/main abc123 refs/heads/main def456\n',
+    encoding: 'utf8',
+    env: { ...process.env, SKIP_VERSION_BUMP: '', HOME: clone },
+  });
+
+  assert.equal(blocked.status, 1, 'the chain must exit non-zero when the guard blocks');
+  assert.ok(!fs.existsSync(marker), 'the review must not run behind a blocked version guard');
+
+  // Second push: the guard passes, so the review is reached.
+  const passed = spawnSync(path.join(clone, '.githooks', 'pre-push'), ['origin', 'url'], {
+    cwd: clone,
+    input: 'refs/heads/main abc123 refs/heads/main def456\n',
+    encoding: 'utf8',
+    env: { ...process.env, SKIP_VERSION_BUMP: '', HOME: clone },
+  });
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.ok(fs.existsSync(marker), 'a passing guard must hand off to the review');
 });
 
 test('a branch deletion is not treated as a release', () => {
