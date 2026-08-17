@@ -115,6 +115,52 @@ Tune it, then `oac sync`. It covers:
 `oac doctor` reports drift when the file is edited but not synced. Opt out with
 `oac init --no-patterns`; an existing file is still used either way.
 
+### Automatic patch versions
+
+Patch numbers are owned by a pre-push hook, not by hand. Install once:
+
+```bash
+npm run hooks:install
+```
+
+On every push it reads `package.json` on `origin/main` and compares:
+
+| Local version vs `origin/main` | What happens |
+| --- | --- |
+| Same `major.minor` | Patch becomes `remote patch + 1`, whatever you typed |
+| Higher `major.minor` | Your deliberate bump — kept exactly as-is, untouched |
+| Lower | Push refused; merge `origin/main` first |
+
+Major and minor stay yours. When the version has to move, the hook commits it and
+**stops the push** — git resolved the SHAs to send before the hook ran, so the new
+commit cannot join that push. Push again and the second one carries it:
+
+```
+$ git push
+  version: origin/main is 0.1.0
+  version: ignoring hand-set patch 0.1.10 — patches are automatic
+  version: 0.1.10 → 0.1.1, committed on main
+  ✖ Push stopped — run `git push` again to send it.
+
+$ git push
+  version: 0.1.1 > origin/main 0.1.0 ✔
+```
+
+Because the reference is `origin/main`, two branches cannot both claim the same patch.
+Land one, then branch again from the updated main.
+
+It refuses to run when a merge or rebase is in progress, on tag pushes and branch
+deletions, and when `package.json` has uncommitted changes *beyond* the version — an
+uncommitted version edit is the normal case and is simply corrected.
+
+`npm run hooks:install` sets a **repo-local** `core.hooksPath`, which beats any global
+one. That is deliberate: a global install would rewrite `package.json` in every repo you
+push from, and a global hooks directory can be overwritten by other tools (git-lfs does
+exactly this). The hook chains git-lfs and `pr-review-run` when they are present.
+
+Bypass with `git push --no-verify`, or `SKIP_VERSION_BUMP=1 git push` to skip only the
+version guard. Uninstall with `git config --unset core.hooksPath`.
+
 ### Anonymous usage counting
 
 oac counts command runs so the author can tell whether anyone else uses it. It is

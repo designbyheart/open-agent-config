@@ -1,0 +1,40 @@
+#!/usr/bin/env sh
+#
+# Pre-push for the agent-config repo itself. Enabled by a REPO-LOCAL core.hooksPath
+# (`npm run hooks:install`), which wins over any global hooksPath — so this keeps
+# working even when another tool overwrites the global hooks directory.
+#
+# 1. git-lfs, when the repo uses it
+# 2. version guard — keeps package.json's patch ahead of origin/main
+# 3. PR review, when pr-review-run is available
+#
+# Deliberately repo-local. A global copy would rewrite package.json in every repo
+# you push from.
+#
+# Bypass:  git push --no-verify   |   SKIP_VERSION_BUMP=1 git push
+
+set -u
+
+root=$(git rev-parse --show-toplevel)
+
+# git feeds the refs being pushed on stdin, and it can only be read once — hold
+# them so every stage below sees the same input.
+refs=$(cat)
+
+# 1. Preserve git-lfs behaviour if this repo is LFS-enabled.
+if [ -e "$root/.gitattributes" ] && grep -q 'filter=lfs' "$root/.gitattributes" 2>/dev/null; then
+  if command -v git-lfs >/dev/null 2>&1; then
+    printf '%s\n' "$refs" | git lfs pre-push "$@" || exit $?
+  fi
+fi
+
+# 2. Version guard first: a push that will be stopped should not pay for a review.
+printf '%s\n' "$refs" | node "$root/hooks/version-bump.mjs" || exit $?
+
+# 3. PR review, from this repo or from the global hooks directory.
+for candidate in "$root/hooks/pr-review-run" "${HOME}/.config/git/hooks/pr-review-run"; do
+  if [ -x "$candidate" ]; then
+    printf '%s\n' "$refs" | "$candidate" "$@"
+    exit $?
+  fi
+done
