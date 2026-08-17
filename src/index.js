@@ -9,6 +9,9 @@ import { cmdDoctor } from './commands/doctor.js';
 import { cmdAddSkill, cmdRemoveSkill } from './commands/skill.js';
 import { cmdImportSkill } from './commands/import.js';
 import { cmdKeys } from './commands/keys.js';
+import { cmdUpdate } from './commands/update.js';
+import { cmdTelemetry } from './commands/telemetry.js';
+import { track } from './telemetry.js';
 
 export { PKG_ROOT };
 
@@ -58,6 +61,8 @@ const HELP = `
     remove-skill <name>  Remove a skill from this project
     doctor               Verify the project's config (drift, missing files, stale source)
     keys                 Print this project's aliases, reference codes, skills and commands
+    update               Pull the latest oac itself (git checkout or npm install)
+    telemetry [on|off]   Show or change anonymous usage counting (status by default)
 
   Options
     --dir=<path>         Target project directory (default: current directory)
@@ -66,6 +71,8 @@ const HELP = `
     --stacks=a,b         Stack rule fragments: nextjs,react-native,swift-vapor
     --skills-only        Install skills + manifest only; never write/modify rule files
     --no-patterns        Don't scaffold .oac/communication-patterns.md (an existing one is still used)
+    --check              update: report what's available without installing it
+    --no-telemetry       Send no usage event for this run
     --yes, -y            Non-interactive; accept defaults / flag values
     --help, -h           Show this help
     --version, -v        Show version
@@ -76,6 +83,7 @@ const HELP = `
     oac sync
     oac list targets
     oac keys
+    oac update --check
 `;
 
 export async function run(argv) {
@@ -92,6 +100,25 @@ export async function run(argv) {
 
   const ctx = { positionals, flags };
 
+  // `telemetry` itself is never counted — asking about tracking should not be tracked.
+  if (command === 'telemetry') return cmdTelemetry(ctx);
+
+  const started = Date.now();
+  let outcome = 'ok';
+  let errorKind = null;
+  try {
+    return await dispatch(command, ctx);
+  } catch (err) {
+    outcome = 'error';
+    // Class or code only. Messages routinely embed paths and project names.
+    errorKind = err?.code || err?.constructor?.name || 'Error';
+    throw err;
+  } finally {
+    await track(command, { outcome, error_kind: errorKind, duration_ms: Date.now() - started }, flags);
+  }
+}
+
+async function dispatch(command, ctx) {
   switch (command) {
     case 'init':
       return cmdInit(ctx);
@@ -109,6 +136,8 @@ export async function run(argv) {
       return cmdDoctor(ctx);
     case 'keys':
       return cmdKeys(ctx);
+    case 'update':
+      return cmdUpdate(ctx);
     default:
       throw new Error(`Unknown command: ${command}\nRun "oac --help" for usage.`);
   }

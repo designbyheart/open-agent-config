@@ -14,6 +14,8 @@ oac add-skill <name>     Install a catalog skill into this project
 oac remove-skill <name>  Remove a skill (and its installed folder)
 oac doctor               Verify project config: missing files, broken blocks, stale catalog
 oac keys                 Print this project's aliases, reference codes, skills and commands
+oac update [--check]     Update oac itself: git pull when linked to a checkout, else npm -g
+oac telemetry [on|off]   Anonymous usage counting: status, or turn it on/off
 oac --help               Usage
 oac --version            Version
 ```

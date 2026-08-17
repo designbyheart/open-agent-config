@@ -115,6 +115,69 @@ Tune it, then `oac sync`. It covers:
 `oac doctor` reports drift when the file is edited but not synced. Opt out with
 `oac init --no-patterns`; an existing file is still used either way.
 
+### Anonymous usage counting
+
+oac counts command runs so the author can tell whether anyone else uses it. It is
+anonymous, it is off in CI, and one command turns it off for good:
+
+```bash
+oac telemetry          # status, plus the exact payload that would be sent
+oac telemetry off      # stop, permanently
+```
+
+`DO_NOT_TRACK=1`, `OAC_TELEMETRY=0`, and `--no-telemetry` are all honoured.
+
+| Sent | Never sent |
+| --- | --- |
+| Command name, outcome, duration | Project names or descriptions |
+| oac / Node / OS / arch versions | Any filesystem path |
+| Catalog ids selected (`claude`, `nextjs`, `code-review`) | File contents, git remotes, repo URLs |
+| A random install id, generated locally | Usernames, hostnames, email |
+| Whether the run was in CI | Error *messages* — only the error's class or code |
+
+The install id is a `randomUUID()` stored in `~/.config/oac/config.json`, derived from
+nothing. On the first run that would send anything, oac prints a notice to stderr saying
+so, once. Requests time out after one second and failures are swallowed, so telemetry
+cannot slow down or break a command — there is a test asserting exactly that.
+
+Self-hosting this fork? Put your own Mixpanel project token in `src/telemetry.js`, or
+leave the placeholder and telemetry stays permanently inert.
+
+### Updating oac itself
+
+```bash
+oac update --check     # what's waiting, without touching anything
+oac update             # apply it
+```
+
+`update` adapts to how oac was installed — nobody has to know which mode they are in:
+
+| Installed as | What `update` does |
+| --- | --- |
+| A git checkout (`npm link`, or `npm i -g <path>`) | `git pull --ff-only` on the current branch, then `npm install` only if the manifest moved |
+| A global install, package not on npm | `npm i -g github:<owner>/<repo>`, read from `package.json` |
+| A published global package | `npm i -g open-agent-config@latest` |
+
+If you work on the catalog, link it once and your edits are live the moment you save —
+no reinstall, ever. `update` is then only for pulling *other people's* commits:
+
+```bash
+git clone https://github.com/designbyheart/open-agent-config.git
+npm i -g ./open-agent-config      # linked: edits take effect immediately
+```
+
+Everyone else installs the published copy and updates the same way:
+
+```bash
+npm i -g github:designbyheart/open-agent-config   # until it's on npm
+oac update                                        # whenever the rules change
+oac sync                                          # in each project, to apply them
+```
+
+`update` refuses to pull into a dirty working tree and names the files blocking it, rather
+than merging over uncommitted work. After updating, run `oac sync` in your projects — or
+`oac doctor` to see which ones have fallen behind.
+
 ### Remembering the shorthand
 
 Aliases and reference codes are only useful if you can recall them mid-task. `oac keys`

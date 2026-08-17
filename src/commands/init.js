@@ -6,6 +6,7 @@ import { resolveProjectDir } from '../fsutil.js';
 import { readManifest, makeManifest, writeManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource, loadTargets, loadSkills, loadStacks, loadOllamaApps } from '../catalog.js';
 import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
+import { addContext } from '../telemetry.js';
 import { isKnownTarget } from '../targets/registry.js';
 
 const DEFAULT_OLLAMA_MODELS = ['kimi-k2.6:cloud', 'gemma4:cloud', 'minimax3:cloud'];
@@ -114,6 +115,18 @@ export async function cmdInit(ctx) {
     patterns: readProjectPatterns(projectDir)?.body,
   });
   writeManifest(projectDir, manifest);
+
+  // Catalog ids only — which targets and skills people actually pick. No project
+  // name, description, or path leaves the machine.
+  addContext({
+    targets: manifest.targets,
+    stacks: manifest.stacks,
+    skills: manifest.skills,
+    skill_count: (manifest.skills || []).length,
+    skills_only: Boolean(manifest.skillsOnly),
+    patterns: manifest.patterns !== false,
+    interactive: !(flags.yes || flags.y),
+  });
 
   if (manifest.skillsOnly) {
     console.log(`\n  ✔ ${manifest.project.name}: skills-only mode (existing rule files left untouched)`);
