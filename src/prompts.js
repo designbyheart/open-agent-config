@@ -88,6 +88,23 @@ export async function interactiveSetup({
     };
   }
 
+  // Project-owned communication patterns. Scaffolded once, then tuned by hand;
+  // an existing file is never overwritten, so this only matters on first run.
+  const patterns = await p.confirm({
+    message: 'Scaffold a tunable communication-patterns file for this project?',
+    initialValue: existing?.patterns ?? true,
+  });
+  if (cancelled(patterns)) return cancel();
+  if (patterns) {
+    p.note(
+      'Prefilled with banned phrases, house style, reference-point codes (D1/R1/F1…),\n' +
+        'aliases (scr, eli, focus, ref…), project boundaries (commit policy,\n' +
+        'off-limits paths), domain vocabulary and example slots.\n' +
+        'Edit it, then run "oac sync".',
+      '.oac/communication-patterns.md'
+    );
+  }
+
   p.outro('Generating config…');
 
   return {
@@ -100,6 +117,7 @@ export async function interactiveSetup({
     stacks: selectedStacks,
     skills: selectedSkills,
     ollama,
+    patterns,
   };
 
   function cancel() {

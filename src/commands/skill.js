@@ -2,6 +2,7 @@ import path from 'node:path';
 import { resolveProjectDir, exists, rmrf } from '../fsutil.js';
 import { readManifest, writeManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource, loadSkills } from '../catalog.js';
+import { readProjectPatterns } from '../patterns.js';
 import { applyManifest } from '../apply.js';
 
 function loadOrThrow(projectDir) {
@@ -24,7 +25,12 @@ export async function cmdAddSkill(ctx) {
   }
 
   manifest.skills.push(id);
-  manifest.sourceHash = hashSource({ stacks: manifest.stacks, skills: manifest.skills, ollama: manifest.ollama });
+  manifest.sourceHash = hashSource({
+    stacks: manifest.stacks,
+    skills: manifest.skills,
+    ollama: manifest.ollama,
+    patterns: readProjectPatterns(projectDir)?.body,
+  });
   writeManifest(projectDir, manifest);
   applyManifest(projectDir, manifest);
   console.log(`\n  ✔ Added skill "${id}".\n`);
@@ -42,7 +48,12 @@ export async function cmdRemoveSkill(ctx) {
   }
 
   manifest.skills = manifest.skills.filter((s) => s !== id);
-  manifest.sourceHash = hashSource({ stacks: manifest.stacks, skills: manifest.skills, ollama: manifest.ollama });
+  manifest.sourceHash = hashSource({
+    stacks: manifest.stacks,
+    skills: manifest.skills,
+    ollama: manifest.ollama,
+    patterns: readProjectPatterns(projectDir)?.body,
+  });
   writeManifest(projectDir, manifest);
 
   // Remove the physically installed skill folder, if present.

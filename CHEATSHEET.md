@@ -13,6 +13,7 @@ oac import-skill <src>   Import a skill into the catalog from a local path or gi
 oac add-skill <name>     Install a catalog skill into this project
 oac remove-skill <name>  Remove a skill (and its installed folder)
 oac doctor               Verify project config: missing files, broken blocks, stale catalog
+oac keys                 Print this project's aliases, reference codes, skills and commands
 oac --help               Usage
 oac --version            Version
 ```
@@ -77,3 +78,21 @@ ollama launch claude --model kimi-k2.6:cloud
 
 Generated content lives between `<!-- oac:start -->` and `<!-- oac:end -->`.
 Edit freely **outside** the markers; `oac sync` only rewrites what's inside.
+
+## Communication patterns (per project)
+
+```bash
+# Scaffolded on init; yours to edit, never overwritten
+$EDITOR .oac/communication-patterns.md
+oac sync                    # push the edits into every generated config
+
+oac keys                    # print the reference card (any terminal / tmux pane)
+/keys                       # same card, inside a Claude Code session
+
+oac init --yes --no-patterns   # skip the scaffold
+```
+
+Holds the project-tunable half: banned phrases, house style, reference-point codes
+(`D1` decisions, `R1` risks, `F1` findings), aliases (`scr`, `eli`, `focus`, `ref`),
+boundaries (commit policy, off-limits paths), domain vocabulary, and example
+responses. `oac doctor` flags it when edited but not synced.

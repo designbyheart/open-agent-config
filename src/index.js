@@ -8,6 +8,7 @@ import { cmdList } from './commands/list.js';
 import { cmdDoctor } from './commands/doctor.js';
 import { cmdAddSkill, cmdRemoveSkill } from './commands/skill.js';
 import { cmdImportSkill } from './commands/import.js';
+import { cmdKeys } from './commands/keys.js';
 
 export { PKG_ROOT };
 
@@ -56,6 +57,7 @@ const HELP = `
     add-skill <name>     Add a catalog skill to this project
     remove-skill <name>  Remove a skill from this project
     doctor               Verify the project's config (drift, missing files, stale source)
+    keys                 Print this project's aliases, reference codes, skills and commands
 
   Options
     --dir=<path>         Target project directory (default: current directory)
@@ -63,6 +65,7 @@ const HELP = `
     --skills=a,b         Skill ids to install
     --stacks=a,b         Stack rule fragments: nextjs,react-native,swift-vapor
     --skills-only        Install skills + manifest only; never write/modify rule files
+    --no-patterns        Don't scaffold .oac/communication-patterns.md (an existing one is still used)
     --yes, -y            Non-interactive; accept defaults / flag values
     --help, -h           Show this help
     --version, -v        Show version
@@ -72,6 +75,7 @@ const HELP = `
     oac init --yes --targets=claude,cursor,codex
     oac sync
     oac list targets
+    oac keys
 `;
 
 export async function run(argv) {
@@ -103,6 +107,8 @@ export async function run(argv) {
       return cmdRemoveSkill(ctx);
     case 'doctor':
       return cmdDoctor(ctx);
+    case 'keys':
+      return cmdKeys(ctx);
     default:
       throw new Error(`Unknown command: ${command}\nRun "oac --help" for usage.`);
   }

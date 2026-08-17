@@ -49,6 +49,7 @@ export function makeManifest({
   stacks = [],
   ollama = { models: [], apps: [] },
   skillsOnly = false,
+  patterns = true,
   sourceHash,
   cliVersion,
 }) {
@@ -63,6 +64,9 @@ export function makeManifest({
     // rule files (AGENTS.md, CLAUDE.md, …). Used to add skills to a repo that
     // already maintains its own agent config.
     skillsOnly,
+    // When false, oac never scaffolds `.oac/communication-patterns.md`. An
+    // existing file is still inlined — opting out stops creation, not use.
+    patterns,
     targets,
     skills,
     stacks,

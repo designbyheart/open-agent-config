@@ -7,6 +7,8 @@ export const CATALOG_DIR = path.join(PKG_ROOT, 'catalog');
 export const RULES_DIR = path.join(CATALOG_DIR, 'rules');
 export const STACKS_DIR = path.join(RULES_DIR, 'stacks');
 export const SKILLS_DIR = path.join(CATALOG_DIR, 'skills');
+export const TEMPLATES_DIR = path.join(CATALOG_DIR, 'templates');
+export const PATTERNS_TEMPLATE_FILE = path.join(TEMPLATES_DIR, 'communication-patterns.md');
 export const TARGETS_FILE = path.join(CATALOG_DIR, 'targets.json');
 export const OLLAMA_APPS_FILE = path.join(CATALOG_DIR, 'ollama-apps.json');
 
@@ -149,9 +151,12 @@ function titleFromBody(body) {
  * Stable content hash of the rule material a project depends on. Lets `doctor`
  * detect when the catalog has changed since the last generation.
  */
-export function hashSource({ stacks = [], skills = [], ollama } = {}) {
+export function hashSource({ stacks = [], skills = [], ollama, patterns } = {}) {
   const h = crypto.createHash('sha256');
   for (const r of loadRules()) h.update(`rule:${r.id}\n${r.body}\n`);
+  // The project's own patterns file is inlined into every generated config, so
+  // editing it must make `doctor` report the generated files as stale.
+  if (patterns) h.update(`patterns:\n${patterns}\n`);
   for (const s of loadStacks()) {
     if (stacks.includes(s.id)) h.update(`stack:${s.id}\n${s.body}\n`);
   }

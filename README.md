@@ -73,14 +73,18 @@ open-agent-config/            ← this repo: the master catalog + the CLI
   catalog/
     rules/                    ← canonical source of truth (markdown fragments)
       00-operating-rules.md   ← numbered engineering ruleset (precision, token economy, delegation)
+      10-communication-protocol.md ← response shape, reference points, boundaries, aliases
       20-voice-and-tone.md    ← delivery & persona
       stacks/                 ← optional stack-specific rules
     skills/<name>/SKILL.md    ← master skills catalog
+    templates/                ← scaffolded into a project once, then owned by it
+      communication-patterns.md
     targets.json              ← supported agents/editors
   src/  bin/                  ← the CLI
 
 your-project/                 ← anywhere on disk
   agent.config.json           ← per-project manifest (what was selected)
+  .oac/communication-patterns.md  ← yours to tune; scaffolded once, never overwritten
   AGENTS.md  CLAUDE.md  …     ← generated config, one per selected tool
   .claude/skills/<name>/      ← skills copied in (Claude)
 ```
@@ -89,6 +93,48 @@ You edit rules **once** in `catalog/rules/`. Each project's generated files are 
 from those fragments and wrapped in a managed block
 (`<!-- oac:start --> … <!-- oac:end -->`), so re-running keeps your hand edits outside the
 block and only refreshes what `oac` owns.
+
+### Per-project communication patterns
+
+The catalog rules are shared and regenerated; some things should differ per project.
+`oac init` scaffolds `.oac/communication-patterns.md` from a prefilled template and then
+never touches it again. Its content is **inlined into every generated config**, so it
+reaches Cursor and Copilot too, not just the tools that can open the file.
+
+Tune it, then `oac sync`. It covers:
+
+| Section | What you put there |
+| --- | --- |
+| Prefer / Avoid | House style and the exact words and phrases to ban |
+| Reference points | Short codes (`D1` decisions, `R1` risks, `F1` findings…) so you can say "expand R2" |
+| Aliases | One-word expansions — `scr` simplify+compress, `eli` explain simply, `focus`, `ref`, `risk` |
+| Boundaries | Commit and PR policy, paths that are off-limits without asking, autofix/docs/test dials |
+| Domain vocabulary | Terms this project uses precisely, and what they must not be confused with |
+| Examples | Real responses you liked, verbatim — in-context distillation beats describing what you want |
+
+`oac doctor` reports drift when the file is edited but not synced. Opt out with
+`oac init --no-patterns`; an existing file is still used either way.
+
+### Remembering the shorthand
+
+Aliases and reference codes are only useful if you can recall them mid-task. `oac keys`
+prints the card in any terminal or tmux pane, reading straight from the project's file:
+
+```
+  Aliases — type the token alone; the agent expands it
+    scr    Simplify, compress, and repeat your last response.
+    focus  What matters most here? What is the true signal?
+    ev     Show the evidence for that claim — file, line, command, or output.
+
+  Reference codes — "expand R2" instead of re-quoting
+    R1, R2, …  Risks
+    F1, F2, …  Findings
+```
+
+It also lists the project's installed skills and build/test/lint commands. Claude Code
+targets additionally get a generated `.claude/commands/keys.md`, so `/keys` prints the
+same card without leaving the session. Outside a configured project it falls back to the
+catalog defaults.
 
 ### Adding skills to a repo that already has its own agent config
 

@@ -26,8 +26,8 @@ export function isKnownTarget(id) {
  * Produce every file artifact for the selected targets from one assembled doc.
  * Returns { artifacts: [{ targetId, path, type, body|content }], doc }.
  */
-export function buildArtifacts(manifest) {
-  const doc = assemble(manifest);
+export function buildArtifacts(manifest, { projectDir } = {}) {
+  const doc = assemble(manifest, { projectDir });
   const sectionsMd = renderSections(doc.sections);
   const ids = manifest.targets || [];
   const claudeSelected = ids.includes('claude');

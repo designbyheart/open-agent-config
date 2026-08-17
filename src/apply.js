@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { buildArtifacts } from './targets/registry.js';
 import { skillSourceDir } from './catalog.js';
+import { scaffoldPatterns } from './patterns.js';
 import { upsert } from './managed.js';
 import { exists, readText, writeText, copyDir, ensureDir, chmodSafe } from './fsutil.js';
 
@@ -10,8 +11,17 @@ import { exists, readText, writeText, copyDir, ensureDir, chmodSafe } from './fs
  * raw files are rewritten deterministically. Returns the list of written paths.
  */
 export function applyManifest(projectDir, manifest) {
-  const { artifacts, doc, claudeSelected } = buildArtifacts(manifest);
   const written = [];
+
+  // Scaffold the project's patterns file before assembling, so a first run
+  // inlines it too. Skipped in skills-only mode (no rule files are managed) and
+  // when the project opted out with `patterns: false`.
+  if (!manifest.skillsOnly && manifest.patterns !== false) {
+    const created = scaffoldPatterns(projectDir);
+    if (created) written.push(created);
+  }
+
+  const { artifacts, doc, claudeSelected } = buildArtifacts(manifest, { projectDir });
 
   // skills-only mode never writes/modifies rule files — only skills + manifest.
   if (!manifest.skillsOnly) {

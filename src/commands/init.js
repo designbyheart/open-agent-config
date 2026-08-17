@@ -5,6 +5,7 @@ import { listFlag } from '../index.js';
 import { resolveProjectDir } from '../fsutil.js';
 import { readManifest, makeManifest, writeManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource, loadTargets, loadSkills, loadStacks, loadOllamaApps } from '../catalog.js';
+import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { isKnownTarget } from '../targets/registry.js';
 
 const DEFAULT_OLLAMA_MODELS = ['kimi-k2.6:cloud', 'gemma4:cloud', 'minimax3:cloud'];
@@ -52,6 +53,8 @@ function manifestFromFlags(projectDir, flags, existing) {
     };
   }
 
+  const patterns = flags['no-patterns'] ? false : (existing?.patterns ?? true);
+
   return makeManifest({
     project: {
       name,
@@ -63,7 +66,8 @@ function manifestFromFlags(projectDir, flags, existing) {
     stacks,
     ollama,
     skillsOnly,
-    sourceHash: hashSource({ stacks, skills, ollama }),
+    patterns,
+    // sourceHash is set by cmdInit after apply — see the note there.
     cliVersion: cliVersion(),
   });
 }
@@ -94,13 +98,22 @@ export async function cmdInit(ctx) {
       skills: selections.skills,
       stacks: selections.stacks,
       ollama: selections.ollama,
-      sourceHash: hashSource({ stacks: selections.stacks, skills: selections.skills, ollama: selections.ollama }),
+      patterns: selections.patterns,
       cliVersion: cliVersion(),
     });
   }
 
-  writeManifest(projectDir, manifest);
+  // Apply first: it may scaffold `.oac/communication-patterns.md`, whose content
+  // feeds the source hash. Hashing before that would leave the manifest stale
+  // the moment it was written.
   const written = applyManifest(projectDir, manifest);
+  manifest.sourceHash = hashSource({
+    stacks: manifest.stacks,
+    skills: manifest.skills,
+    ollama: manifest.ollama,
+    patterns: readProjectPatterns(projectDir)?.body,
+  });
+  writeManifest(projectDir, manifest);
 
   if (manifest.skillsOnly) {
     console.log(`\n  ✔ ${manifest.project.name}: skills-only mode (existing rule files left untouched)`);
@@ -110,5 +123,11 @@ export async function cmdInit(ctx) {
   console.log(`  ✔ Wrote ${written.length} path(s):`);
   for (const w of written) console.log(`      ${w}`);
   console.log(`\n  Manifest: ${MANIFEST_NAME}`);
+  if (written.includes(PATTERNS_REL)) {
+    console.log(`\n  → Tune ${PATTERNS_REL} for this project:`);
+    console.log(`      phrases to ban, house style, reference-point codes, aliases,`);
+    console.log(`      boundaries (commit policy, off-limits paths), domain vocabulary,`);
+    console.log(`      and real examples of responses you liked. Then run "oac sync".`);
+  }
   console.log(`  Re-run after catalog updates with:  oac sync\n`);
 }

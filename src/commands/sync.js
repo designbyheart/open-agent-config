@@ -4,6 +4,7 @@ import { PKG_ROOT } from '../paths.js';
 import { resolveProjectDir } from '../fsutil.js';
 import { readManifest, writeManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource } from '../catalog.js';
+import { readProjectPatterns } from '../patterns.js';
 import { applyManifest } from '../apply.js';
 
 export async function cmdSync(ctx) {
@@ -13,13 +14,18 @@ export async function cmdSync(ctx) {
     throw new Error(`No ${MANIFEST_NAME} here. Run "oac init" first.`);
   }
 
-  // Refresh derived fields, then regenerate.
-  manifest.sourceHash = hashSource({ stacks: manifest.stacks, skills: manifest.skills, ollama: manifest.ollama });
+  // Regenerate first — apply may scaffold the project patterns file, whose
+  // content feeds the source hash — then refresh derived fields.
+  const written = applyManifest(projectDir, manifest);
+  manifest.sourceHash = hashSource({
+    stacks: manifest.stacks,
+    skills: manifest.skills,
+    ollama: manifest.ollama,
+    patterns: readProjectPatterns(projectDir)?.body,
+  });
   manifest.cliVersion = JSON.parse(readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')).version;
   manifest.generatedAt = new Date().toISOString();
-
   writeManifest(projectDir, manifest);
-  const written = applyManifest(projectDir, manifest);
 
   console.log(`\n  ✔ Synced ${manifest.project.name} (${manifest.targets.join(', ')})`);
   console.log(`  ✔ ${written.length} path(s) regenerated.\n`);

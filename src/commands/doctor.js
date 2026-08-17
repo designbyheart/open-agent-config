@@ -2,6 +2,7 @@ import path from 'node:path';
 import { resolveProjectDir, exists, readText } from '../fsutil.js';
 import { readManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource } from '../catalog.js';
+import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { buildArtifacts } from '../targets/registry.js';
 import { hasBlock } from '../managed.js';
 
@@ -14,15 +15,22 @@ export async function cmdDoctor(ctx) {
   const ok = [];
 
   // 1. Source drift.
-  const current = hashSource({ stacks: manifest.stacks, skills: manifest.skills, ollama: manifest.ollama });
+  const current = hashSource({
+    stacks: manifest.stacks,
+    skills: manifest.skills,
+    ollama: manifest.ollama,
+    patterns: readProjectPatterns(projectDir)?.body,
+  });
   if (manifest.sourceHash && manifest.sourceHash !== current) {
-    problems.push(`Catalog changed since last generation (run "oac sync"). [${manifest.sourceHash} → ${current}]`);
+    problems.push(
+      `Catalog or ${PATTERNS_REL} changed since last generation (run "oac sync"). [${manifest.sourceHash} → ${current}]`
+    );
   } else {
     ok.push('Source up to date with catalog.');
   }
 
   // 2. Expected files present + managed block intact (skipped in skills-only mode).
-  const { artifacts, doc, claudeSelected } = buildArtifacts(manifest);
+  const { artifacts, doc, claudeSelected } = buildArtifacts(manifest, { projectDir });
   if (manifest.skillsOnly) {
     ok.push('Skills-only mode — rule files are managed outside oac.');
   } else {

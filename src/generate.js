@@ -1,4 +1,5 @@
 import { loadRules, loadStacks, loadSkills } from './catalog.js';
+import { readProjectPatterns } from './patterns.js';
 
 /** Strip a single leading `# H1` line from a fragment body. */
 function stripH1(body) {
@@ -40,7 +41,7 @@ function demoteHeadings(md, levels = 1) {
  * renders from THIS so the rules are identical across tools — only the wrapper
  * (frontmatter, filename, skills handling) differs per target.
  */
-export function assemble(manifest) {
+export function assemble(manifest, { projectDir } = {}) {
   const projectName = manifest.project?.name || 'Project';
   const description = manifest.project?.description || '';
   const sections = [];
@@ -57,6 +58,13 @@ export function assemble(manifest) {
   // Base rule fragments, in catalog order, demoted to H2 sections.
   for (const rule of loadRules()) {
     sections.push({ title: rule.title, md: `## ${rule.title}\n\n${stripH1(rule.body)}` });
+  }
+
+  // Project-owned communication patterns (.oac/communication-patterns.md),
+  // placed next to the rules it refines.
+  const patterns = readProjectPatterns(projectDir);
+  if (patterns) {
+    sections.push({ title: patterns.title, md: `## ${patterns.title}\n\n${stripH1(patterns.body)}` });
   }
 
   // Selected stack fragments (already authored as H2).
