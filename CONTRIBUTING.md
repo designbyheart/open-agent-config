@@ -52,3 +52,23 @@ repository belongs in your own fork, not here.
   needs one, since both write to files a user may have hand edited.
 - No generated output committed — `AGENTS.md`, `CLAUDE.md`, `.cursor/`, and friends
   are ignored on purpose. The catalog is the source of truth.
+
+## Releasing
+
+Publishing runs on npm Trusted Publishing (OIDC) — no token lives in repo secrets.
+Two one-time steps had to happen first, and are already done:
+
+1. `npm publish --access public` from a maintainer's machine, to claim the name.
+2. On npmjs.com → the package → Settings → Trusted Publisher: GitHub Actions,
+   repo `designbyheart/open-agent-config`, workflow `release.yml`.
+
+After that, a release is one tag:
+
+```sh
+# package.json is already at the version you want (the pre-push guard sees to it)
+git tag v0.1.3
+git push origin v0.1.3
+```
+
+`.github/workflows/release.yml` runs the suite, refuses a tag that disagrees with
+`package.json`, publishes with provenance, and opens the GitHub release.
