@@ -26,7 +26,8 @@ import { exists, readText, writeText } from './fsutil.js';
 const TOKEN_PLACEHOLDER = 'REPLACE_WITH_MIXPANEL_PROJECT_TOKEN';
 const MIXPANEL_TOKEN = process.env.OAC_MIXPANEL_TOKEN || TOKEN_PLACEHOLDER;
 
-const ENDPOINT = 'https://api.mixpanel.com/track';
+// Overridable so tests can exercise the enabled path without leaving the machine.
+const ENDPOINT = process.env.OAC_TELEMETRY_ENDPOINT || 'https://api.mixpanel.com/track';
 const TIMEOUT_MS = 1000;
 
 export const CI_VARS = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI', 'JENKINS_URL'];

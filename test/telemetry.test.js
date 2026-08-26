@@ -20,6 +20,9 @@ function sandbox(extraEnv = {}) {
       ...process.env,
       XDG_CONFIG_HOME: home,
       OAC_MIXPANEL_TOKEN: 'test-token',
+      // Telemetry is deliberately *enabled* in these sandboxes, so the send has to
+      // go somewhere unroutable — otherwise every matrix job POSTs to Mixpanel.
+      OAC_TELEMETRY_ENDPOINT: 'http://127.0.0.1:1/track',
       // Every marker telemetry treats as CI, not just CI itself — otherwise these
       // tests exercise the disabled path when they run on a CI runner.
       ...Object.fromEntries(CI_VARS.map((v) => [v, ''])),
@@ -137,11 +140,12 @@ test('telemetry status shows the real payload shape, with the token redacted', (
 test('a command still succeeds when the telemetry endpoint is unreachable', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oac-offline-'));
   const { env } = sandbox();
-  // Point the network at nothing: an unroutable proxy makes fetch fail fast.
+  // sandbox() already aims the endpoint at a closed port, so the send fails fast.
+  // (An HTTPS_PROXY would not: Node's global fetch ignores the proxy env vars.)
   const r = spawnSync(process.execPath, [CLI, 'init', '--yes', '--targets=claude'], {
     cwd: dir,
     encoding: 'utf8',
-    env: { ...env, HTTPS_PROXY: 'http://127.0.0.1:1', https_proxy: 'http://127.0.0.1:1' },
+    env,
   });
   assert.equal(r.status, 0, `init must survive a dead telemetry endpoint: ${r.stderr}`);
   assert.ok(fs.existsSync(path.join(dir, 'CLAUDE.md')));

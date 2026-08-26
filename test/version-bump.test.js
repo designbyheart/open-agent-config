@@ -33,7 +33,7 @@ function repoWithRemote(mainVersion = '0.1.0') {
   git(seed, 'remote', 'add', 'origin', remote);
   git(seed, 'push', '-q', '-u', 'origin', 'main');
 
-  spawnSync('git', ['clone', '-q', remote, clone]);
+  spawnSync('git', ['clone', '-q', '--config', 'core.autocrlf=false', remote, clone]);
   git(clone, 'config', 'user.email', 't@example.com');
   git(clone, 'config', 'user.name', 'Test');
   return { clone, seed };
