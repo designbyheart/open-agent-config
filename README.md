@@ -206,7 +206,9 @@ so, once. Requests time out after one second and failures are swallowed, so tele
 cannot slow down or break a command — there is a test asserting exactly that.
 
 Self-hosting this fork? Put your own Mixpanel project token in `src/telemetry.js`, or
-leave the placeholder and telemetry stays permanently inert.
+leave the placeholder and telemetry stays permanently inert. `OAC_TELEMETRY_ENDPOINT`
+redirects the POST somewhere else entirely — a proxy, a local collector, or a closed
+port when you want the enabled path exercised without anything leaving the machine.
 
 ### Updating oac itself
 

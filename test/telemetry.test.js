@@ -139,9 +139,9 @@ test('telemetry status shows the real payload shape, with the token redacted', (
 
 test('a command still succeeds when the telemetry endpoint is unreachable', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'oac-offline-'));
-  const { env } = sandbox();
-  // sandbox() already aims the endpoint at a closed port, so the send fails fast.
-  // (An HTTPS_PROXY would not: Node's global fetch ignores the proxy env vars.)
+  // Stated here rather than inherited from sandbox(), so this test keeps its premise
+  // even if the shared default ever points at a live local stub.
+  const { env } = sandbox({ OAC_TELEMETRY_ENDPOINT: 'http://127.0.0.1:1/track' });
   const r = spawnSync(process.execPath, [CLI, 'init', '--yes', '--targets=claude'], {
     cwd: dir,
     encoding: 'utf8',
