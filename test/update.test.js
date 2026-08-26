@@ -25,13 +25,16 @@ function repoPair() {
   spawnSync('git', ['init', '-b', 'main', seed]);
   git(seed, 'config', 'user.email', 't@example.com');
   git(seed, 'config', 'user.name', 'Test');
+  // Windows runners default to core.autocrlf=true, which would rewrite the
+  // fixture's line endings and break byte-exact content assertions.
+  git(seed, 'config', 'core.autocrlf', 'false');
   fs.writeFileSync(path.join(seed, 'file.txt'), 'one\n');
   git(seed, 'add', '-A');
   git(seed, 'commit', '-m', 'first');
   git(seed, 'remote', 'add', 'origin', remote);
   git(seed, 'push', '-q', '-u', 'origin', 'main');
 
-  spawnSync('git', ['clone', '-q', remote, clone]);
+  spawnSync('git', ['clone', '-q', '--config', 'core.autocrlf=false', remote, clone]);
   return { seed, clone };
 }
 

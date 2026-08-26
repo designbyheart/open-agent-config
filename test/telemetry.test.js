@@ -6,6 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
+import { CI_VARS } from '../src/telemetry.js';
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(REPO, 'bin', 'cli.js');
 
@@ -14,7 +16,15 @@ function sandbox(extraEnv = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'oac-tel-'));
   return {
     home,
-    env: { ...process.env, XDG_CONFIG_HOME: home, OAC_MIXPANEL_TOKEN: 'test-token', CI: '', ...extraEnv },
+    env: {
+      ...process.env,
+      XDG_CONFIG_HOME: home,
+      OAC_MIXPANEL_TOKEN: 'test-token',
+      // Every marker telemetry treats as CI, not just CI itself — otherwise these
+      // tests exercise the disabled path when they run on a CI runner.
+      ...Object.fromEntries(CI_VARS.map((v) => [v, ''])),
+      ...extraEnv,
+    },
   };
 }
 

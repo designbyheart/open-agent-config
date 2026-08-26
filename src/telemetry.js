@@ -29,7 +29,7 @@ const MIXPANEL_TOKEN = process.env.OAC_MIXPANEL_TOKEN || TOKEN_PLACEHOLDER;
 const ENDPOINT = 'https://api.mixpanel.com/track';
 const TIMEOUT_MS = 1000;
 
-const CI_VARS = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI', 'JENKINS_URL'];
+export const CI_VARS = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI', 'JENKINS_URL'];
 
 export function configPath() {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
