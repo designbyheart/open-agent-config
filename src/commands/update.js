@@ -99,8 +99,19 @@ function updateFromNpm({ check }) {
   const { name, version } = meta;
   const view = spawnSync('npm', ['view', name, 'version'], { encoding: 'utf8' });
 
-  // Not on the registry: this copy came from the repository, so refresh it from
-  // there. Publishing later switches this to the registry path automatically.
+  // GitHub Packages needs credentials even to read, so a failed lookup is no longer
+  // proof the package is unpublished. Downgrading a registry install to a git one
+  // over an expired token would be a silent, surprising demotion — say so instead.
+  if (view.status !== 0 && !/E404|404 Not Found/.test(view.stderr || '')) {
+    throw new Error(
+      `Could not reach the registry for ${name}.\n` +
+        '  Check your network, or that ~/.npmrc still has a valid token for\n' +
+        '  https://npm.pkg.github.com (a GitHub PAT with read:packages).'
+    );
+  }
+
+  // Genuinely not on the registry: this copy came from the repository, so refresh it
+  // from there. Publishing later switches this to the registry path automatically.
   if (view.status !== 0) {
     const spec = gitSpec(meta.repository?.url || meta.repository);
     if (!spec) {
