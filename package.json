@@ -9,7 +9,7 @@
     "oac": "bin/cli.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.12.0"
   },
   "repository": {
     "type": "git",
@@ -37,7 +37,7 @@
     "hooks:install": "node hooks/install.mjs"
   },
   "dependencies": {
-    "@clack/prompts": "^0.7.0"
+    "@clack/prompts": "^1.7.0"
   },
   "keywords": [
     "ai",

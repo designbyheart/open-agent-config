@@ -17,7 +17,7 @@ config, so nested repos in one workspace can each run a different setup.
 
 ## Quick start
 
-Requires **Node.js ≥ 18**.
+Requires **Node.js ≥ 20.12**.
 
 ```bash
 # run it without installing

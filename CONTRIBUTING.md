@@ -13,7 +13,7 @@ npm test
 node bin/cli.js --help
 ```
 
-Node 18 or newer. No build step — the CLI runs from source.
+Node 20.12 or newer. No build step — the CLI runs from source.
 
 ## Where things live
 
