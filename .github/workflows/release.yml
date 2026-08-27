@@ -10,7 +10,7 @@ on:
 
 permissions:
   contents: write   # create the GitHub release
-  id-token: write   # npm Trusted Publishing (OIDC) — no NPM_TOKEN needed
+  packages: write   # publish to the GitHub Packages npm registry
 
 jobs:
   release:
@@ -20,23 +20,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
           cache: npm
+          # Scoped to @designbyheart, so `npm ci` still resolves everything else
+          # (@clack/prompts and friends) from the public registry.
+          registry-url: https://npm.pkg.github.com
+          scope: '@designbyheart'
 
       # A tag that disagrees with the manifest would publish the wrong version.
+      # Cheapest gate, so it runs before anything is installed.
       - name: Tag must match package.json
         run: |
           tag="${GITHUB_REF_NAME#v}"
           pkg=$(node -p "require('./package.json').version")
           [ "$tag" = "$pkg" ] || { echo "tag $GITHUB_REF_NAME != package.json $pkg"; exit 1; }
 
-      # Trusted Publishing needs npm 11.5.1+, newer than any bundled release.
-      - run: npm install -g npm@^11.5.1
-
       - run: npm ci --no-audit --no-fund
       - run: npm test
 
-      - run: npm publish --access public
+      # GITHUB_TOKEN is scoped to this repo — no long-lived credential in secrets.
+      # Package visibility follows the repository's.
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: GitHub release
         run: gh release create "$GITHUB_REF_NAME" --generate-notes

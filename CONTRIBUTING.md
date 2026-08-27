@@ -55,20 +55,30 @@ repository belongs in your own fork, not here.
 
 ## Releasing
 
-Publishing runs on npm Trusted Publishing (OIDC) — no token lives in repo secrets.
-Two one-time steps had to happen first, and are already done:
+Packages go to the **GitHub Packages** npm registry, published by
+`.github/workflows/release.yml` using the workflow's own `GITHUB_TOKEN`. There is no
+npmjs account, no stored credential, and no manual first publish — package visibility
+just follows the repository's.
 
-1. `npm publish --access public` from a maintainer's machine, to claim the name.
-2. On npmjs.com → the package → Settings → Trusted Publisher: GitHub Actions,
-   repo `designbyheart/open-agent-config`, workflow `release.yml`.
-
-After that, a release is one tag:
+A release is one tag:
 
 ```sh
-# package.json is already at the version you want (the pre-push guard sees to it)
+# package.json is already at the version you want — the pre-push guard sees to it
 git tag v0.1.3
 git push origin v0.1.3
 ```
 
-`.github/workflows/release.yml` runs the suite, refuses a tag that disagrees with
-`package.json`, publishes with provenance, and opens the GitHub release.
+The workflow runs the suite, refuses a tag that disagrees with `package.json`,
+publishes `@designbyheart/open-agent-config`, and opens the GitHub release.
+
+Consumers need one line of `~/.npmrc` before installing, because GitHub Packages
+requires authentication even for public packages:
+
+```
+@designbyheart:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=<a GitHub PAT with read:packages>
+```
+
+Without it, `npm i -g @designbyheart/open-agent-config` fails and `oac update` falls
+back to installing from the git repo — which is why the README still documents
+`npm i -g github:designbyheart/open-agent-config` as the zero-setup route.
