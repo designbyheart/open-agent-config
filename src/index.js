@@ -78,7 +78,7 @@ const HELP = `
     --version, -v        Show version
 
   Examples
-    npx open-agent-config init
+    npx github:designbyheart/open-agent-config init
     oac init --yes --targets=claude,cursor,codex
     oac sync
     oac list targets

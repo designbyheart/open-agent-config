@@ -83,6 +83,12 @@ export function updateFromGit(root, { check } = {}) {
  * `github:owner/repo` from the manifest's repository URL — the install spec npm
  * accepts for a package that isn't on the registry.
  */
+// The package was renamed to @designbyheart/open-agent-config, but the bin is still
+// `oac` — npm refuses to install over a global copy of the old name.
+const EEXIST_HINT =
+  '\n  If npm reported EEXIST on "oac", the pre-rename package still owns it:' +
+  '\n  npm uninstall -g open-agent-config';
+
 export function gitSpec(repoUrl) {
   const m = String(repoUrl || '').match(/github\.com[:/]([^/]+)\/([^/.]+)/);
   return m ? `github:${m[1]}/${m[2]}` : null;
@@ -106,7 +112,7 @@ function updateFromNpm({ check }) {
       return;
     }
     const installed = spawnSync('npm', ['i', '-g', spec], { stdio: 'inherit' });
-    if (installed.status !== 0) throw new Error(`npm i -g ${spec} failed.`);
+    if (installed.status !== 0) throw new Error(`npm i -g ${spec} failed.${EEXIST_HINT}`);
     console.log(`\n  ✔ Reinstalled from ${spec}.`);
     console.log(`  → Run "oac sync" in your projects to pick up catalog changes.\n`);
     return;
@@ -124,7 +130,7 @@ function updateFromNpm({ check }) {
   }
 
   const installed = spawnSync('npm', ['i', '-g', `${name}@latest`], { stdio: 'inherit' });
-  if (installed.status !== 0) throw new Error('npm install failed.');
+  if (installed.status !== 0) throw new Error(`npm install failed.${EEXIST_HINT}`);
   console.log(`\n  ✔ Updated to ${latest}.`);
   console.log(`  → Run "oac sync" in your projects to pick up catalog changes.\n`);
 }

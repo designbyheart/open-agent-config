@@ -46,6 +46,11 @@ oac init --yes --targets=claude,cursor,codex --stacks=nextjs --skills=code-revie
 Pin a version by appending `#<ref>`, e.g. `npm install -g github:designbyheart/open-agent-config#v0.1.0`.
 To uninstall: `npm uninstall -g @designbyheart/open-agent-config`.
 
+> **Upgrading from before the rename?** The package moved from `open-agent-config` to
+> `@designbyheart/open-agent-config`, but the binary is still `oac` — npm will refuse to
+> install over the old copy with `EEXIST`. Run `npm uninstall -g open-agent-config` once,
+> then install as above.
+
 Released versions also live on **GitHub Packages** as `@designbyheart/open-agent-config`.
 That registry requires authentication even for public packages, so it costs two lines of
 `~/.npmrc` — worth it if you want real semver pinning rather than a git ref:

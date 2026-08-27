@@ -71,7 +71,7 @@ git push origin v0.1.3
 The workflow runs the suite, refuses a tag that disagrees with `package.json`,
 publishes `@designbyheart/open-agent-config`, and opens the GitHub release.
 
-Consumers need one line of `~/.npmrc` before installing, because GitHub Packages
+Consumers need two lines of `~/.npmrc` before installing, because GitHub Packages
 requires authentication even for public packages:
 
 ```
@@ -79,6 +79,10 @@ requires authentication even for public packages:
 //npm.pkg.github.com/:_authToken=<a GitHub PAT with read:packages>
 ```
 
-Without it, `npm i -g @designbyheart/open-agent-config` fails and `oac update` falls
-back to installing from the git repo — which is why the README still documents
+Anyone upgrading from before the rename must `npm uninstall -g open-agent-config` first:
+the bin is still `oac`, so npm fails with `EEXIST` otherwise. `oac update` says so when an
+install fails.
+
+Without that `.npmrc`, `npm i -g @designbyheart/open-agent-config` fails and `oac update`
+falls back to installing from the git repo — which is why the README still documents
 `npm i -g github:designbyheart/open-agent-config` as the zero-setup route.
