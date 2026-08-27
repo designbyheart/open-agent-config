@@ -33,7 +33,7 @@ function repoWithRemote(mainVersion = '0.1.0') {
   git(seed, 'remote', 'add', 'origin', remote);
   git(seed, 'push', '-q', '-u', 'origin', 'main');
 
-  spawnSync('git', ['clone', '-q', remote, clone]);
+  spawnSync('git', ['clone', '-q', '--config', 'core.autocrlf=false', remote, clone]);
   git(clone, 'config', 'user.email', 't@example.com');
   git(clone, 'config', 'user.name', 'Test');
   return { clone, seed };
@@ -273,7 +273,12 @@ test('SKIP_VERSION_BUMP and tag pushes are left alone', () => {
   assert.equal(versionOf(clone), '0.1.0', 'tag pushes carry no version meaning');
 });
 
-test('the hook chain stops at the version guard before spending a review', () => {
+// The chain under test is .githooks/pre-push, a POSIX sh script. Windows cannot
+// exec it directly (no shebang support), and git there runs it through its own
+// bundled bash — a path this harness cannot reproduce.
+test('the hook chain stops at the version guard before spending a review', {
+  skip: process.platform === 'win32' && 'POSIX shell hook; not executable directly on Windows',
+}, () => {
   const { clone } = repoWithRemote('0.1.0');
   commitWork(clone);
 

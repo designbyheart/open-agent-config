@@ -8,7 +8,7 @@ const KEYS_COMMAND = [
   'and no reformatting — it is a reference card, not a task.',
   '',
   '```bash',
-  'command -v oac >/dev/null 2>&1 && oac keys || npx -y open-agent-config keys',
+  'command -v oac >/dev/null 2>&1 && oac keys || npx -y github:designbyheart/open-agent-config keys',
   '```',
   '',
 ].join('\n');

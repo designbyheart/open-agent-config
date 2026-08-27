@@ -1,0 +1,49 @@
+name: release
+
+# Cut a release by pushing the tag that matches package.json:
+#   git tag v0.1.3 && git push origin v0.1.3
+# Prerelease tags are deliberately not matched: publishing one without an explicit
+# --tag would move the `latest` dist-tag onto it.
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: write   # create the GitHub release
+  packages: write   # publish to the GitHub Packages npm registry
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          # Scoped to @designbyheart, so `npm ci` still resolves everything else
+          # (@clack/prompts and friends) from the public registry.
+          registry-url: https://npm.pkg.github.com
+          scope: '@designbyheart'
+
+      # A tag that disagrees with the manifest would publish the wrong version.
+      # Cheapest gate, so it runs before anything is installed.
+      - name: Tag must match package.json
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          [ "$tag" = "$pkg" ] || { echo "tag $GITHUB_REF_NAME != package.json $pkg"; exit 1; }
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+      # GITHUB_TOKEN is scoped to this repo — no long-lived credential in secrets.
+      # Package visibility follows the repository's.
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: GitHub release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

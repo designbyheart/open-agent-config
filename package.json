@@ -1,6 +1,6 @@
 {
-  "name": "open-agent-config",
-  "version": "0.1.2",
+  "name": "@designbyheart/open-agent-config",
+  "version": "0.1.3",
   "description": "Configure any AI coding agent or editor (Claude, Cursor, Copilot, Codex, Windsurf, …) for a project from one canonical rules source.",
   "author": "Predrag Jevtic (https://github.com/designbyheart)",
   "license": "MIT",
@@ -9,7 +9,7 @@
     "oac": "bin/cli.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.12.0"
   },
   "repository": {
     "type": "git",
@@ -18,6 +18,9 @@
   "homepage": "https://github.com/designbyheart/open-agent-config#readme",
   "bugs": {
     "url": "https://github.com/designbyheart/open-agent-config/issues"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "files": [
     "bin",
@@ -34,7 +37,7 @@
     "hooks:install": "node hooks/install.mjs"
   },
   "dependencies": {
-    "@clack/prompts": "^0.7.0"
+    "@clack/prompts": "^1.7.0"
   },
   "keywords": [
     "ai",

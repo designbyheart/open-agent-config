@@ -17,7 +17,7 @@ config, so nested repos in one workspace can each run a different setup.
 
 ## Quick start
 
-Requires **Node.js ≥ 18**.
+Requires **Node.js ≥ 20.12**.
 
 ```bash
 # run it without installing
@@ -44,7 +44,27 @@ oac init --yes --targets=claude,cursor,codex --stacks=nextjs --skills=code-revie
 ![oac init and oac doctor](media/oac-init.png)
 
 Pin a version by appending `#<ref>`, e.g. `npm install -g github:designbyheart/open-agent-config#v0.1.0`.
-To uninstall: `npm uninstall -g open-agent-config`.
+To uninstall: `npm uninstall -g @designbyheart/open-agent-config`.
+
+> **Upgrading from before the rename?** The package moved from `open-agent-config` to
+> `@designbyheart/open-agent-config`, but the binary is still `oac` — npm will refuse to
+> install over the old copy with `EEXIST`. Run `npm uninstall -g open-agent-config` once,
+> then install as above.
+
+Released versions also live on **GitHub Packages** as `@designbyheart/open-agent-config`.
+That registry requires authentication even for public packages, so it costs two lines of
+`~/.npmrc` — worth it if you want real semver pinning rather than a git ref:
+
+```
+@designbyheart:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=<a GitHub PAT with read:packages>
+```
+
+```bash
+npm install -g @designbyheart/open-agent-config
+```
+
+The `github:` route above needs none of that, and stays the recommended way in.
 
 **Working inside a clone** (to edit the catalog or CLI):
 
@@ -206,7 +226,9 @@ so, once. Requests time out after one second and failures are swallowed, so tele
 cannot slow down or break a command — there is a test asserting exactly that.
 
 Self-hosting this fork? Put your own Mixpanel project token in `src/telemetry.js`, or
-leave the placeholder and telemetry stays permanently inert.
+leave the placeholder and telemetry stays permanently inert. `OAC_TELEMETRY_ENDPOINT`
+redirects the POST somewhere else entirely — a proxy, a local collector, or a closed
+port when you want the enabled path exercised without anything leaving the machine.
 
 ### Updating oac itself
 
@@ -221,7 +243,7 @@ oac update             # apply it
 | --- | --- |
 | A git checkout (`npm link`, or `npm i -g <path>`) | `git pull --ff-only` on the current branch, then `npm install` only if the manifest moved |
 | A global install, package not on npm | `npm i -g github:<owner>/<repo>`, read from `package.json` |
-| A published global package | `npm i -g open-agent-config@latest` |
+| A published global package | `npm i -g @designbyheart/open-agent-config@latest` |
 
 If you work on the catalog, link it once and your edits are live the moment you save —
 no reinstall, ever. `update` is then only for pulling *other people's* commits:
@@ -234,7 +256,7 @@ npm i -g ./open-agent-config      # linked: edits take effect immediately
 Everyone else installs the published copy and updates the same way:
 
 ```bash
-npm i -g github:designbyheart/open-agent-config   # until it's on npm
+npm i -g github:designbyheart/open-agent-config   # no registry auth needed
 oac update                                        # whenever the rules change
 oac sync                                          # in each project, to apply them
 ```

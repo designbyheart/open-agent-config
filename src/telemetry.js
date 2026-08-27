@@ -26,10 +26,12 @@ import { exists, readText, writeText } from './fsutil.js';
 const TOKEN_PLACEHOLDER = 'REPLACE_WITH_MIXPANEL_PROJECT_TOKEN';
 const MIXPANEL_TOKEN = process.env.OAC_MIXPANEL_TOKEN || TOKEN_PLACEHOLDER;
 
-const ENDPOINT = 'https://api.mixpanel.com/track';
+// Overridable (see README) so a fork can point at its own collector, and so tests
+// can exercise the enabled path without leaving the machine.
+const ENDPOINT = process.env.OAC_TELEMETRY_ENDPOINT || 'https://api.mixpanel.com/track';
 const TIMEOUT_MS = 1000;
 
-const CI_VARS = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI', 'JENKINS_URL'];
+export const CI_VARS = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI', 'JENKINS_URL'];
 
 export function configPath() {
   const base = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
@@ -142,7 +144,10 @@ export async function track(command, props = {}, flags = {}) {
   if (!isEnabled(flags)) return false;
   noticeOnce();
   try {
-    const res = await fetch(`${ENDPOINT}?ip=0`, {
+    // Built rather than concatenated: an overridden endpoint may carry its own query.
+    const url = new URL(ENDPOINT);
+    url.searchParams.set('ip', '0');
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify([buildEvent(command, props)]),
