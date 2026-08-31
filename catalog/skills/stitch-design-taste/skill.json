@@ -1,0 +1,16 @@
+{
+  "name": "stitch-design-taste",
+  "version": "1.0.0",
+  "description": "Semantic Design System Skill for Google Stitch. Generates agent-friendly DESIGN.md files that enforce premium, anti-generic UI standards \u2014 strict typography, calibrated color, asymmetric layouts, perpetual micro-motion, and hardware-accelerated performance.",
+  "tags": [
+    "design",
+    "frontend",
+    "taste",
+    "ui"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

@@ -1,0 +1,18 @@
+{
+  "name": "impeccable",
+  "version": "4.1.2",
+  "description": "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. Covers websites, landing pages, dashboards, product UI, app shells, components, forms, settings, onboarding, ",
+  "tags": [
+    "design",
+    "frontend",
+    "ui",
+    "ux",
+    "critique",
+    "anti-patterns"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

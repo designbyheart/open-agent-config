@@ -1,0 +1,16 @@
+{
+  "name": "imagegen-frontend-mobile",
+  "version": "1.0.0",
+  "description": "Elite mobile app image-generation skill for creating premium, app-native screen concepts and flows. Designed for iOS, Android, and cross-platform mobile products. Prioritizes clean hierarchy, comfortably readable text, strong multi-screen consistency, controlled color palettes, non-generic creative ",
+  "tags": [
+    "design",
+    "frontend",
+    "taste",
+    "ui"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

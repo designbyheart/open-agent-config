@@ -1,0 +1,16 @@
+{
+  "name": "design-taste-frontend",
+  "version": "1.0.0",
+  "description": "Anti-slop frontend skill for landing pages, portfolios, and redesigns. The agent reads the brief, infers the right design direction, and ships interfaces that do not look templated. Real design systems when applicable, audit-first on redesigns, strict pre-flight check.",
+  "tags": [
+    "design",
+    "frontend",
+    "taste",
+    "ui"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "imagegen-frontend-web",
+  "version": "1.0.0",
+  "description": "Elite frontend image-direction skill for generating premium, conversion-aware website design references. CRITICAL OUTPUT RULE \u2014 generate ONE separate horizontal image FOR EVERY section. A landing page with 8 sections produces 8 images. Never compress multiple sections into one image. Enforces compos",
+  "tags": [
+    "design",
+    "frontend",
+    "taste",
+    "ui"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}

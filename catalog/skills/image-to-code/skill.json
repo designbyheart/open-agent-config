@@ -1,0 +1,16 @@
+{
+  "name": "image-to-code",
+  "version": "1.0.0",
+  "description": "Elite website image-to-code skill for Codex. For visually important web tasks, it must first generate the design image(s) itself, deeply analyze them, then implement the website to match them as closely as possible. In Codex, it must prefer large, readable, section-specific images instead of tiny co",
+  "tags": [
+    "design",
+    "frontend",
+    "taste",
+    "ui"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}
