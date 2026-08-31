@@ -129,10 +129,29 @@ export function renderSkills(selectedSkills, { installed, skillsDir = '.claude/s
   return `## Skills\n\n${intro}\n\n${skillIndexRows(selectedSkills)}`;
 }
 
+/**
+ * How much of a skill's description and trigger an index row may carry. The
+ * row exists to answer "does this skill exist and when would I reach for it",
+ * not to reproduce the playbook — and catalog descriptions run to 370
+ * characters, so an unclamped index for a large selection costs ~17 KiB, over
+ * half the entire agent-doc budget, and leaves no room for any real content.
+ */
+const INDEX_DESC_CHARS = 120;
+const INDEX_TRIGGER_CHARS = 80;
+
+function clamp(text, max) {
+  const t = (text || '').replace(/\s+/g, ' ').trim();
+  return t.length <= max ? t : `${t.slice(0, max - 1).trimEnd()}…`;
+}
+
 /** One line per skill: name, description, trigger. The cheap form. */
 function skillIndexRows(skills) {
   return skills
-    .map((s) => `- **${s.name}** — ${s.description}${s.trigger ? ` _(trigger: ${s.trigger})_` : ''}`)
+    .map((s) => {
+      const desc = clamp(s.description, INDEX_DESC_CHARS);
+      const trigger = s.trigger ? ` _(trigger: ${clamp(s.trigger, INDEX_TRIGGER_CHARS)})_` : '';
+      return `- **${s.name}** — ${desc}${trigger}`;
+    })
     .join('\n');
 }
 
@@ -174,6 +193,12 @@ function renderInlineBlock(s) {
  * until the next one would not fit; the remainder is listed as an index instead
  * of being emitted past the point the tool stops reading. Without a budget the
  * whole catalog is inlined, which is only safe for a doc nothing truncates.
+ *
+ * The index is the irreducible floor: naming every selected skill costs what it
+ * costs, so a budget too small to hold even that is exceeded rather than
+ * silently dropping skills from the list. `oversizeWarnings` catches the
+ * resulting document, which is the honest outcome — the fix there is fewer
+ * skills or a target that installs them, not a quieter renderer.
  */
 export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
   if (!selectedSkills.length) return '';
@@ -188,17 +213,20 @@ export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
     return header + blocks.map((b) => b.md).join(JOIN);
   }
 
-  // Reserve worst case: every skill ends up in the overflow index. Conservative
-  // by design — better to inline one skill fewer than to overrun the budget and
-  // have the tool silently drop the tail.
-  const reserve = docBytes(overflowSection(selectedSkills));
-
   const inlined = [];
   const overflow = [];
   let used = docBytes(header);
-  for (const b of blocks) {
+
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
     const cost = docBytes(b.md) + (inlined.length ? docBytes(JOIN) : 0);
-    if (used + cost + reserve <= budget) {
+    // Upper bound on the index we may still have to write if this one is
+    // inlined: everything already overflowed, plus — worst case — everything
+    // after it. Reserving against only what can still land in the index (rather
+    // than against the whole selection) is what keeps a long skill list from
+    // crowding out every body and inlining nothing at all.
+    const worstCaseIndex = indexCost([...overflow, ...blocks.slice(i + 1).map((x) => x.skill)]);
+    if (used + cost + worstCaseIndex <= budget) {
       inlined.push(b);
       used += cost;
     } else {
@@ -214,6 +242,11 @@ export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
   return parts.join('\n\n');
 }
 
+/** Bytes the overflow index costs when appended to a section, 0 for none. */
+function indexCost(skills) {
+  return skills.length ? docBytes('\n\n' + overflowSection(skills)) : 0;
+}
+
 /**
  * Index for skills that did not fit the byte budget. They are named rather than
  * embedded so the agent knows they exist and can ask for them, instead of the
@@ -222,8 +255,8 @@ export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
 function overflowSection(skills) {
   return [
     '### Skills not inlined here',
-    '_These exceeded the byte budget for this file. Their full playbooks live in the ' +
-      'project skills directory; ask for one by name before working in its area._',
+    '_These are selected for this project but exceeded the byte budget for this file. ' +
+      'Ask for one by name before working in its area and it can be supplied in full._',
     skillIndexRows(skills),
   ].join('\n\n');
 }

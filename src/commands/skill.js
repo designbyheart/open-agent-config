@@ -4,6 +4,7 @@ import { readManifest, writeManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource, loadSkills } from '../catalog.js';
 import { readProjectPatterns } from '../patterns.js';
 import { applyManifest } from '../apply.js';
+import { skillDirsFor } from '../targets/registry.js';
 
 function loadOrThrow(projectDir) {
   const manifest = readManifest(projectDir);
@@ -56,9 +57,13 @@ export async function cmdRemoveSkill(ctx) {
   });
   writeManifest(projectDir, manifest);
 
-  // Remove the physically installed skill folder, if present.
-  const installed = path.join(projectDir, '.claude', 'skills', id);
-  if (exists(installed)) rmrf(installed);
+  // Remove the physically installed skill folder from every directory an
+  // install could have put it in. Missing one leaves a removed skill loading
+  // forever, and doctor only checks that selected skills are present.
+  for (const rel of skillDirsFor(manifest)) {
+    const installed = path.join(projectDir, ...rel.split('/'), id);
+    if (exists(installed)) rmrf(installed);
+  }
 
   applyManifest(projectDir, manifest);
   console.log(`\n  ✔ Removed skill "${id}".\n`);

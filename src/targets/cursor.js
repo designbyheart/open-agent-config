@@ -17,6 +17,6 @@ export default {
     ].join('\n');
     const body = [sectionsMd, skillsMd].filter(Boolean).join('\n\n');
     const content = `${frontmatter}\n\n${wrap(body)}`;
-    return [{ path: '.cursor/rules/oac.mdc', type: 'raw', content }];
+    return [{ path: '.cursor/rules/oac.mdc', type: 'raw', budgeted: true, content }];
   },
 };

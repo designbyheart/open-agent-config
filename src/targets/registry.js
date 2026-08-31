@@ -18,6 +18,9 @@ import {
 /** Never squeeze the inline skills section below this, even on a fat rule set. */
 const MIN_INLINE_BUDGET_BYTES = 2048;
 
+/** Where skills go when nothing else claims them (skills-only, no skill target). */
+export const DEFAULT_SKILLS_DIR = '.claude/skills';
+
 const TARGETS = [claude, codex, devin, cursor, copilot, windsurf, ollama];
 const BY_ID = new Map(TARGETS.map((t) => [t.id, t]));
 
@@ -57,7 +60,7 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
   );
 
   const artifacts = [];
-  const seenPaths = new Set();
+  const seenPaths = new Map();
   for (const id of ids) {
     const target = BY_ID.get(id);
     if (!target) continue;
@@ -76,10 +79,21 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
       manifest,
     });
     for (const a of rendered) {
-      // Dedupe shared outputs (e.g. Codex + Devin both write AGENTS.md).
-      if (seenPaths.has(a.path)) continue;
-      seenPaths.add(a.path);
-      artifacts.push({ targetId: id, ...a, bytes: docBytes(a.body ?? a.content) });
+      const built = { targetId: id, ...a, bytes: docBytes(a.body ?? a.content) };
+      // Dedupe shared outputs (e.g. Codex + Devin both write AGENTS.md). When
+      // they collide, the skills-loading target wins regardless of the order
+      // the user listed targets in — otherwise `--targets devin,codex` would
+      // hand Codex an AGENTS.md with every skill inlined while its own
+      // `.codex/skills/` sat installed and unmentioned.
+      const seenAt = seenPaths.get(a.path);
+      if (seenAt !== undefined) {
+        if (target.supportsSkills && !BY_ID.get(artifacts[seenAt].targetId)?.supportsSkills) {
+          artifacts[seenAt] = built;
+        }
+        continue;
+      }
+      seenPaths.set(a.path, artifacts.length);
+      artifacts.push(built);
     }
   }
 
@@ -87,17 +101,44 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
 }
 
 /**
- * Flag instruction docs that will be silently truncated by their consumer.
- * The rule set alone can blow the budget, so this is checked on the finished
- * artifact rather than only on the skills section.
+ * Every skills directory the manifest's targets load from. Skills-only mode
+ * with no skill-capable target falls back to Claude's, matching the behavior
+ * before Codex gained a directory of its own. Single source of truth for
+ * apply, doctor, and remove-skill, so an install can never outlive its removal.
+ */
+export function skillDirsFor(manifest) {
+  const dirs = (manifest.targets || [])
+    .map((id) => BY_ID.get(id))
+    .filter((t) => t && t.supportsSkills && t.skillsDir)
+    .map((t) => t.skillsDir);
+  if (!dirs.length && manifest.skillsOnly) dirs.push(DEFAULT_SKILLS_DIR);
+  return [...new Set(dirs)];
+}
+
+/**
+ * The warning for one instruction file that its consumer will silently
+ * truncate, or null when it fits. Takes bytes rather than an artifact so
+ * callers can measure the finished file on disk — which includes the managed
+ * block markers and any hand-written content above them, and is therefore the
+ * number that actually decides what the tool reads.
+ */
+export function budgetWarning(relPath, bytes) {
+  if (bytes <= AGENT_DOC_BUDGET_BYTES) return null;
+  return (
+    `${relPath} is ${(bytes / 1024).toFixed(1)} KiB, over the ${AGENT_DOC_BUDGET_BYTES / 1024} KiB ` +
+    'agent-doc budget. Codex and similar tools stop reading at that point without warning, so the ' +
+    'tail is ignored. Trim rules, shorten hand-written content in the file, or select fewer skills.'
+  );
+}
+
+/**
+ * Flag generated instruction docs that are already over budget before anything
+ * else is added to the file. `budgeted` marks the artifacts their target reads
+ * wholesale, so a Cursor `.mdc` is checked even though it is written raw.
  */
 export function oversizeWarnings(artifacts) {
   return artifacts
-    .filter((a) => a.type === 'doc' && a.bytes > AGENT_DOC_BUDGET_BYTES)
-    .map(
-      (a) =>
-        `${a.path} is ${(a.bytes / 1024).toFixed(1)} KiB, over the ${
-          AGENT_DOC_BUDGET_BYTES / 1024
-        } KiB agent-doc budget. Codex and similar tools stop reading at that point without warning, so the tail is ignored. Trim rules or move skills to a target that installs them natively.`
-    );
+    .filter((a) => a.budgeted)
+    .map((a) => budgetWarning(a.path, a.bytes))
+    .filter(Boolean);
 }

@@ -1,9 +1,10 @@
 import path from 'node:path';
-import { resolveProjectDir, exists, readText } from '../fsutil.js';
+import { resolveProjectDir, exists, readText, listDirs } from '../fsutil.js';
 import { readManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource } from '../catalog.js';
+import { docBytes } from '../generate.js';
 import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
-import { buildArtifacts } from '../targets/registry.js';
+import { buildArtifacts, skillDirsFor, budgetWarning } from '../targets/registry.js';
 import { hasBlock } from '../managed.js';
 
 export async function cmdDoctor(ctx) {
@@ -12,6 +13,7 @@ export async function cmdDoctor(ctx) {
   if (!manifest) throw new Error(`No ${MANIFEST_NAME} here. Run "oac init" first.`);
 
   const problems = [];
+  const warnings = [];
   const ok = [];
 
   // 1. Source drift.
@@ -30,7 +32,7 @@ export async function cmdDoctor(ctx) {
   }
 
   // 2. Expected files present + managed block intact (skipped in skills-only mode).
-  const { artifacts, doc, skillTargets, warnings } = buildArtifacts(manifest, { projectDir });
+  const { artifacts, doc } = buildArtifacts(manifest, { projectDir });
   if (manifest.skillsOnly) {
     ok.push('Skills-only mode — rule files are managed outside oac.');
   } else {
@@ -40,36 +42,57 @@ export async function cmdDoctor(ctx) {
         problems.push(`Missing file: ${a.path}`);
         continue;
       }
-      if (a.type === 'doc' && !hasBlock(readText(abs))) {
+      const text = readText(abs);
+      if (a.type === 'doc' && !hasBlock(text)) {
         problems.push(`Managed block missing in: ${a.path}`);
       } else {
-        ok.push(`Present: ${a.path}`);
+        ok.push(`Present: ${a.path} (${(docBytes(text) / 1024).toFixed(1)} KiB)`);
+      }
+      // Size the file as it sits on disk — hand-written content above the
+      // managed block counts against the consumer's budget just the same.
+      if (a.budgeted) {
+        const w = budgetWarning(a.path, docBytes(text));
+        if (w) warnings.push(w);
       }
     }
   }
 
-  // 3. Installed skills present, in every target that loads them natively.
-  const skillDirs = skillTargets.map((t) => t.skillsDir);
-  if (manifest.skillsOnly && !skillDirs.length) skillDirs.push('.claude/skills');
-  for (const rel of skillDirs) {
+  // 3. Installed skills present, in every target that loads them natively, and
+  //    no leftovers from skills that were removed.
+  const selected = new Set(doc.selectedSkills.map((s) => s.id));
+  for (const rel of skillDirsFor(manifest)) {
     for (const skill of doc.selectedSkills) {
       const dir = path.join(projectDir, ...rel.split('/'), skill.id);
       if (!exists(dir)) problems.push(`Skill not installed: ${rel}/${skill.id}/`);
       else ok.push(`Skill installed: ${rel}/${skill.id}`);
     }
+    const root = path.join(projectDir, ...rel.split('/'));
+    if (!exists(root)) continue;
+    for (const name of listDirs(root)) {
+      if (!selected.has(name)) problems.push(`Stale skill still installed: ${rel}/${name}/`);
+    }
   }
-
-  // 4. Generated docs that their consumer will silently truncate.
-  for (const w of warnings) problems.push(w);
 
   console.log(`\n  Doctor — ${manifest.project.name}`);
   for (const o of ok) console.log(`    ✔ ${o}`);
   for (const pr of problems) console.log(`    ✖ ${pr}`);
+  for (const w of warnings) console.log(`    ⚠ ${w}`);
 
   if (problems.length) {
-    console.log(`\n  ${problems.length} problem(s). Run "oac sync" to fix generated files.\n`);
+    console.log(`\n  ${problems.length} problem(s). Run "oac sync" to fix generated files.`);
     process.exitCode = 1;
-  } else {
+  } else if (!warnings.length) {
     console.log(`\n  All good.\n`);
+    return;
   }
+  // Oversize is real but "sync" cannot shrink a rule set, so it gets its own
+  // advice rather than pointing at a command that will never clear it.
+  if (warnings.length) {
+    console.log(
+      `\n  ${warnings.length} oversize file(s). Their tails are ignored by the tools that read them; ` +
+        `select fewer skills, trim rules, or move skills to a target that installs them.`
+    );
+    process.exitCode = 1;
+  }
+  console.log('');
 }

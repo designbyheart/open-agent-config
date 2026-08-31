@@ -10,6 +10,8 @@ export default {
       sectionsMd,
     ];
     if (skillsMd) parts.push(skillsMd);
-    return [{ path: '.github/copilot-instructions.md', type: 'doc', body: parts.join('\n\n') }];
+    return [
+      { path: '.github/copilot-instructions.md', type: 'doc', budgeted: true, body: parts.join('\n\n') },
+    ];
   },
 };

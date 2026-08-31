@@ -23,7 +23,7 @@ export default {
     const parts = [`# CLAUDE.md — ${projectName}`, '_Context and guidelines for Claude Code._', sectionsMd];
     if (skillsMd) parts.push(skillsMd);
     return [
-      { path: 'CLAUDE.md', type: 'doc', body: parts.join('\n\n') },
+      { path: 'CLAUDE.md', type: 'doc', budgeted: true, body: parts.join('\n\n') },
       // `/keys` — the same reference card the CLI prints, available inside a session.
       { path: '.claude/commands/keys.md', type: 'raw', content: KEYS_COMMAND },
     ];

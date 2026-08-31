@@ -1,12 +1,10 @@
 import path from 'node:path';
-import { buildArtifacts } from './targets/registry.js';
+import { buildArtifacts, skillDirsFor, budgetWarning } from './targets/registry.js';
 import { skillSourceDir } from './catalog.js';
+import { docBytes } from './generate.js';
 import { scaffoldPatterns } from './patterns.js';
 import { upsert } from './managed.js';
 import { exists, readText, writeText, copyDir, ensureDir, chmodSafe } from './fsutil.js';
-
-/** Where skills go when nothing else claims them (skills-only, no skill target). */
-const DEFAULT_SKILLS_DIR = '.claude/skills';
 
 /**
  * Write all generated config files + install skills for a project, based on its
@@ -29,21 +27,29 @@ export function applyManifest(projectDir, manifest, { onWarn = () => {} } = {}) 
     if (created) written.push(created);
   }
 
-  const { artifacts, doc, skillTargets, warnings } = buildArtifacts(manifest, { projectDir });
-  for (const w of warnings) onWarn(w);
+  const { artifacts, doc } = buildArtifacts(manifest, { projectDir });
 
   // skills-only mode never writes/modifies rule files — only skills + manifest.
   if (!manifest.skillsOnly) {
     for (const a of artifacts) {
       const abs = path.join(projectDir, a.path);
+      let final;
       if (a.type === 'raw') {
-        writeText(abs, a.content);
+        final = a.content;
       } else {
         const existing = exists(abs) ? readText(abs) : '';
-        writeText(abs, upsert(existing, a.body));
+        final = upsert(existing, a.body);
       }
+      writeText(abs, final);
       if (a.mode) chmodSafe(abs, a.mode);
       written.push(a.path);
+      // Measure what was actually written, not just what we generated: the
+      // managed block markers and any hand-written content the file already
+      // carried both count against the consumer's budget.
+      if (a.budgeted) {
+        const w = budgetWarning(a.path, docBytes(final));
+        if (w) onWarn(w);
+      }
     }
   }
 
@@ -51,9 +57,8 @@ export function applyManifest(projectDir, manifest, { onWarn = () => {} } = {}) 
   // `.claude/skills/` for Claude, `.codex/skills/` for Codex. In skills-only
   // mode this happens regardless of targets, defaulting to Claude's directory
   // when no skill-capable target is selected.
-  if ((manifest.skillsOnly || skillTargets.length) && (manifest.skills || []).length) {
-    const dirs = skillTargets.map((t) => t.skillsDir);
-    if (!dirs.length) dirs.push(DEFAULT_SKILLS_DIR);
+  const dirs = skillDirsFor(manifest);
+  if (dirs.length && (manifest.skills || []).length) {
     for (const rel of dirs) {
       const skillsRoot = path.join(projectDir, ...rel.split('/'));
       ensureDir(skillsRoot);

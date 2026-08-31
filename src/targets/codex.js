@@ -15,6 +15,6 @@ export default {
       sectionsMd,
     ];
     if (skillsMd) parts.push(skillsMd);
-    return [{ path: 'AGENTS.md', type: 'doc', body: parts.join('\n\n') }];
+    return [{ path: 'AGENTS.md', type: 'doc', budgeted: true, body: parts.join('\n\n') }];
   },
 };
