@@ -1,6 +1,27 @@
 import { loadRules, loadStacks, loadSkills } from './catalog.js';
 import { readProjectPatterns } from './patterns.js';
 
+/**
+ * Byte budget for a generated agent instruction document.
+ *
+ * Codex sums every project doc it discovers against `project_doc_max_bytes`
+ * (default 32 KiB) and then simply stops reading — no warning, no error, the
+ * rest of the file is silently dropped. Other AGENTS.md consumers apply similar
+ * caps. Anything we emit past this point is guidance the tool never sees, so we
+ * budget for it explicitly instead of writing a megabyte and hoping.
+ *
+ * @see https://learn.chatgpt.com/docs/agent-configuration/agents-md
+ */
+export const AGENT_DOC_BUDGET_BYTES = 32768;
+
+/** Headroom for a target's own wrapper: title, blurb, managed-block markers. */
+export const DOC_WRAPPER_ALLOWANCE_BYTES = 1024;
+
+/** Byte length of a string as it will actually be written to disk. */
+export function docBytes(text) {
+  return Buffer.byteLength(text || '', 'utf8');
+}
+
 /** Strip a single leading `# H1` line from a fragment body. */
 function stripH1(body) {
   return body.replace(/^#\s+.*\n+/, '').trim();
@@ -100,53 +121,109 @@ export function renderSections(sections) {
  * Skills section. For Claude the skills are physically installed in
  * `.claude/skills/`; for other tools they're listed as reference playbooks.
  */
-export function renderSkills(selectedSkills, { installed }) {
+export function renderSkills(selectedSkills, { installed, skillsDir = '.claude/skills' } = {}) {
   if (!selectedSkills.length) return '';
   const intro = installed
-    ? 'These skills are installed in `.claude/skills/` and load on demand:'
-    : 'Reference playbooks for this project (full text in `.claude/skills/` if present):';
-  const rows = selectedSkills
+    ? `These skills are installed in \`${skillsDir}/\` and load on demand:`
+    : `Reference playbooks for this project (full text in \`${skillsDir}/\` if present):`;
+  return `## Skills\n\n${intro}\n\n${skillIndexRows(selectedSkills)}`;
+}
+
+/** One line per skill: name, description, trigger. The cheap form. */
+function skillIndexRows(skills) {
+  return skills
     .map((s) => `- **${s.name}** — ${s.description}${s.trigger ? ` _(trigger: ${s.trigger})_` : ''}`)
     .join('\n');
-  return `## Skills\n\n${intro}\n\n${rows}`;
+}
+
+/** The full inlined block for one skill: body plus any bundled markdown. */
+function renderInlineBlock(s) {
+  const meta = [];
+  if (s.trigger) meta.push(`_When to use: ${s.trigger}_`);
+  else if (s.description) meta.push(`_${s.description}_`);
+  if (s.hasNonDocExtras) {
+    meta.push(
+      '_Note: this skill also ships non-text files (e.g. scripts, assets) that travel only ' +
+        'with a Claude Code install; they are not inlined here._'
+    );
+  }
+  const out = [`### ${s.name}`, meta.join('\n\n'), demoteHeadings(stripH1(s.body || ''), 2)];
+
+  // Bundled markdown the skill refers to by path — inline it under matching
+  // headings so the reference resolves for tools that can't open the files.
+  const docs = s.extraDocs || [];
+  if (docs.length) {
+    out.push(
+      '_Bundled reference files (the playbook above refers to these by path; their full text follows):_'
+    );
+    for (const doc of docs) {
+      out.push(`#### \`${doc.path}\`\n\n${demoteHeadings(stripH1(doc.body), 3)}`);
+    }
+  }
+  return out.filter(Boolean).join('\n\n').trim();
 }
 
 /**
- * Inline full skill playbooks for tools that can't physically load
- * `.claude/skills/` (Cursor, Copilot, Codex, Windsurf, Devin). Each skill's
- * SKILL.md body is embedded — H1 stripped, inner headings demoted to nest under
- * the skill's `###` heading — so the guidance actually reaches the tool instead
- * of being a dangling reference to files it can't open.
+ * Inline full skill playbooks for tools that can't physically load a skills
+ * directory (Cursor, Copilot, Windsurf, Devin). Each skill's SKILL.md body is
+ * embedded — H1 stripped, inner headings demoted to nest under the skill's
+ * `###` heading — so the guidance actually reaches the tool instead of being a
+ * dangling reference to files it can't open.
+ *
+ * `budget` caps the bytes this section may occupy. Skills are inlined in order
+ * until the next one would not fit; the remainder is listed as an index instead
+ * of being emitted past the point the tool stops reading. Without a budget the
+ * whole catalog is inlined, which is only safe for a doc nothing truncates.
  */
-export function renderSkillsInline(selectedSkills) {
+export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
   if (!selectedSkills.length) return '';
   const intro =
     'The following project skills are inlined so this tool can apply them directly. ' +
     'Each is a self-contained playbook — use it when its trigger matches.';
-  const blocks = selectedSkills.map((s) => {
-    const meta = [];
-    if (s.trigger) meta.push(`_When to use: ${s.trigger}_`);
-    else if (s.description) meta.push(`_${s.description}_`);
-    if (s.hasNonDocExtras) {
-      meta.push(
-        '_Note: this skill also ships non-text files (e.g. scripts, assets) that travel only ' +
-          'with a Claude Code install; they are not inlined here._'
-      );
-    }
-    const out = [`### ${s.name}`, meta.join('\n\n'), demoteHeadings(stripH1(s.body || ''), 2)];
+  const blocks = selectedSkills.map((s) => ({ skill: s, md: renderInlineBlock(s) }));
+  const header = `## Skills\n\n${intro}\n\n`;
+  const JOIN = '\n\n---\n\n';
 
-    // Bundled markdown the skill refers to by path — inline it under matching
-    // headings so the reference resolves for tools that can't open the files.
-    const docs = s.extraDocs || [];
-    if (docs.length) {
-      out.push(
-        '_Bundled reference files (the playbook above refers to these by path; their full text follows):_'
-      );
-      for (const doc of docs) {
-        out.push(`#### \`${doc.path}\`\n\n${demoteHeadings(stripH1(doc.body), 3)}`);
-      }
+  if (budget === Infinity) {
+    return header + blocks.map((b) => b.md).join(JOIN);
+  }
+
+  // Reserve worst case: every skill ends up in the overflow index. Conservative
+  // by design — better to inline one skill fewer than to overrun the budget and
+  // have the tool silently drop the tail.
+  const reserve = docBytes(overflowSection(selectedSkills));
+
+  const inlined = [];
+  const overflow = [];
+  let used = docBytes(header);
+  for (const b of blocks) {
+    const cost = docBytes(b.md) + (inlined.length ? docBytes(JOIN) : 0);
+    if (used + cost + reserve <= budget) {
+      inlined.push(b);
+      used += cost;
+    } else {
+      overflow.push(b.skill);
     }
-    return out.filter(Boolean).join('\n\n').trim();
-  });
-  return `## Skills\n\n${intro}\n\n${blocks.join('\n\n---\n\n')}`;
+  }
+
+  if (!overflow.length) return header + inlined.map((b) => b.md).join(JOIN);
+
+  const parts = [header.trimEnd()];
+  if (inlined.length) parts.push(inlined.map((b) => b.md).join(JOIN));
+  parts.push(overflowSection(overflow));
+  return parts.join('\n\n');
+}
+
+/**
+ * Index for skills that did not fit the byte budget. They are named rather than
+ * embedded so the agent knows they exist and can ask for them, instead of the
+ * guidance vanishing into a truncated tail.
+ */
+function overflowSection(skills) {
+  return [
+    '### Skills not inlined here',
+    '_These exceeded the byte budget for this file. Their full playbooks live in the ' +
+      'project skills directory; ask for one by name before working in its area._',
+    skillIndexRows(skills),
+  ].join('\n\n');
 }

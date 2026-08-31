@@ -107,7 +107,8 @@ export async function cmdInit(ctx) {
   // Apply first: it may scaffold `.oac/communication-patterns.md`, whose content
   // feeds the source hash. Hashing before that would leave the manifest stale
   // the moment it was written.
-  const written = applyManifest(projectDir, manifest);
+  const initWarnings = [];
+  const written = applyManifest(projectDir, manifest, { onWarn: (w) => initWarnings.push(w) });
   manifest.sourceHash = hashSource({
     stacks: manifest.stacks,
     skills: manifest.skills,
@@ -135,6 +136,7 @@ export async function cmdInit(ctx) {
   }
   console.log(`  ✔ Wrote ${written.length} path(s):`);
   for (const w of written) console.log(`      ${w}`);
+  for (const w of initWarnings) console.log(`  ⚠ ${w}`);
   console.log(`\n  Manifest: ${MANIFEST_NAME}`);
   if (written.includes(PATTERNS_REL)) {
     console.log(`\n  → Tune ${PATTERNS_REL} for this project:`);

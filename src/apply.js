@@ -5,12 +5,20 @@ import { scaffoldPatterns } from './patterns.js';
 import { upsert } from './managed.js';
 import { exists, readText, writeText, copyDir, ensureDir, chmodSafe } from './fsutil.js';
 
+/** Where skills go when nothing else claims them (skills-only, no skill target). */
+const DEFAULT_SKILLS_DIR = '.claude/skills';
+
 /**
  * Write all generated config files + install skills for a project, based on its
  * manifest. Idempotent: managed-block files preserve content outside markers;
  * raw files are rewritten deterministically. Returns the list of written paths.
+ *
+ * `onWarn` receives non-fatal problems with the generated output — currently
+ * instruction docs that exceed the agent-doc byte budget and will therefore be
+ * silently truncated by their consumer. Defaults to a no-op so existing callers
+ * are unaffected.
  */
-export function applyManifest(projectDir, manifest) {
+export function applyManifest(projectDir, manifest, { onWarn = () => {} } = {}) {
   const written = [];
 
   // Scaffold the project's patterns file before assembling, so a first run
@@ -21,7 +29,8 @@ export function applyManifest(projectDir, manifest) {
     if (created) written.push(created);
   }
 
-  const { artifacts, doc, claudeSelected } = buildArtifacts(manifest, { projectDir });
+  const { artifacts, doc, skillTargets, warnings } = buildArtifacts(manifest, { projectDir });
+  for (const w of warnings) onWarn(w);
 
   // skills-only mode never writes/modifies rule files — only skills + manifest.
   if (!manifest.skillsOnly) {
@@ -38,14 +47,20 @@ export function applyManifest(projectDir, manifest) {
     }
   }
 
-  // Install skills into .claude/skills/. In skills-only mode this happens
-  // regardless of targets; otherwise only when Claude is a target.
-  if ((manifest.skillsOnly || claudeSelected) && (manifest.skills || []).length) {
-    const skillsRoot = path.join(projectDir, '.claude', 'skills');
-    ensureDir(skillsRoot);
-    for (const skill of doc.selectedSkills) {
-      copyDir(skillSourceDir(skill.id), path.join(skillsRoot, skill.id));
-      written.push(`.claude/skills/${skill.id}/`);
+  // Install skills into every selected target that loads them natively —
+  // `.claude/skills/` for Claude, `.codex/skills/` for Codex. In skills-only
+  // mode this happens regardless of targets, defaulting to Claude's directory
+  // when no skill-capable target is selected.
+  if ((manifest.skillsOnly || skillTargets.length) && (manifest.skills || []).length) {
+    const dirs = skillTargets.map((t) => t.skillsDir);
+    if (!dirs.length) dirs.push(DEFAULT_SKILLS_DIR);
+    for (const rel of dirs) {
+      const skillsRoot = path.join(projectDir, ...rel.split('/'));
+      ensureDir(skillsRoot);
+      for (const skill of doc.selectedSkills) {
+        copyDir(skillSourceDir(skill.id), path.join(skillsRoot, skill.id));
+        written.push(`${rel}/${skill.id}/`);
+      }
     }
   }
 

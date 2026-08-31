@@ -17,6 +17,7 @@ export default {
   id: 'claude',
   label: 'Claude Code',
   supportsSkills: true,
+  skillsDir: '.claude/skills',
   detect: ['CLAUDE.md', '.claude'],
   render({ projectName, sectionsMd, skillsMd }) {
     const parts = [`# CLAUDE.md — ${projectName}`, '_Context and guidelines for Claude Code._', sectionsMd];

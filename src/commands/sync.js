@@ -17,7 +17,8 @@ export async function cmdSync(ctx) {
 
   // Regenerate first — apply may scaffold the project patterns file, whose
   // content feeds the source hash — then refresh derived fields.
-  const written = applyManifest(projectDir, manifest);
+  const warnings = [];
+  const written = applyManifest(projectDir, manifest, { onWarn: (w) => warnings.push(w) });
   manifest.sourceHash = hashSource({
     stacks: manifest.stacks,
     skills: manifest.skills,
@@ -36,5 +37,7 @@ export async function cmdSync(ctx) {
   });
 
   console.log(`\n  ✔ Synced ${manifest.project.name} (${manifest.targets.join(', ')})`);
-  console.log(`  ✔ ${written.length} path(s) regenerated.\n`);
+  console.log(`  ✔ ${written.length} path(s) regenerated.`);
+  for (const w of warnings) console.log(`  ⚠ ${w}`);
+  console.log('');
 }

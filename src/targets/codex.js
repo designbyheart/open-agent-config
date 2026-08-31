@@ -1,7 +1,12 @@
 export default {
   id: 'codex',
   label: 'Codex / universal (AGENTS.md)',
-  supportsSkills: false,
+  // Codex loads SKILL.md folders natively from `.codex/skills/`, so it gets the
+  // short index like Claude does. It used to be flagged false, which forced the
+  // inline path and pushed AGENTS.md far past `project_doc_max_bytes` (32 KiB),
+  // where Codex silently stops reading — so the skills never arrived at all.
+  supportsSkills: true,
+  skillsDir: '.codex/skills',
   detect: ['AGENTS.md', '.codex'],
   render({ projectName, sectionsMd, skillsMd }) {
     const parts = [

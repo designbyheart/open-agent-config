@@ -30,7 +30,7 @@ export async function cmdDoctor(ctx) {
   }
 
   // 2. Expected files present + managed block intact (skipped in skills-only mode).
-  const { artifacts, doc, claudeSelected } = buildArtifacts(manifest, { projectDir });
+  const { artifacts, doc, skillTargets, warnings } = buildArtifacts(manifest, { projectDir });
   if (manifest.skillsOnly) {
     ok.push('Skills-only mode — rule files are managed outside oac.');
   } else {
@@ -48,14 +48,19 @@ export async function cmdDoctor(ctx) {
     }
   }
 
-  // 3. Installed skills present.
-  if (manifest.skillsOnly || claudeSelected) {
+  // 3. Installed skills present, in every target that loads them natively.
+  const skillDirs = skillTargets.map((t) => t.skillsDir);
+  if (manifest.skillsOnly && !skillDirs.length) skillDirs.push('.claude/skills');
+  for (const rel of skillDirs) {
     for (const skill of doc.selectedSkills) {
-      const dir = path.join(projectDir, '.claude', 'skills', skill.id);
-      if (!exists(dir)) problems.push(`Skill not installed: .claude/skills/${skill.id}/`);
-      else ok.push(`Skill installed: ${skill.id}`);
+      const dir = path.join(projectDir, ...rel.split('/'), skill.id);
+      if (!exists(dir)) problems.push(`Skill not installed: ${rel}/${skill.id}/`);
+      else ok.push(`Skill installed: ${rel}/${skill.id}`);
     }
   }
+
+  // 4. Generated docs that their consumer will silently truncate.
+  for (const w of warnings) problems.push(w);
 
   console.log(`\n  Doctor — ${manifest.project.name}`);
   for (const o of ok) console.log(`    ✔ ${o}`);

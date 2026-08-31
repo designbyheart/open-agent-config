@@ -48,17 +48,27 @@ test('empty selection renders nothing', () => {
   assert.equal(renderSkillsInline([]), '');
 });
 
-test('non-Claude targets inline skill bodies; Claude gets the short list', () => {
+test('targets that cannot load skills inline the bodies', () => {
+  const manifest = { project: { name: 'T' }, targets: ['windsurf'], skills: ['premortem'] };
+  const { artifacts } = buildArtifacts(manifest);
+  const windsurf = artifacts.find((a) => a.path === '.windsurfrules');
+
+  assert.match(windsurf.body, /### premortem/);
+  assert.match(windsurf.body, /inlined so this tool can apply them directly/);
+});
+
+test('skill-loading targets get the short list and name their own skills dir', () => {
   const manifest = { project: { name: 'T' }, targets: ['codex', 'claude'], skills: ['premortem'] };
   const { artifacts } = buildArtifacts(manifest);
   const agents = artifacts.find((a) => a.path === 'AGENTS.md');
   const claude = artifacts.find((a) => a.path === 'CLAUDE.md');
 
-  // Codex (AGENTS.md) inlines the playbook.
-  assert.match(agents.body, /### premortem/);
-  assert.match(agents.body, /inlined so this tool can apply them directly/);
+  // Codex loads SKILL.md folders natively, so AGENTS.md references rather than
+  // inlines — the whole point of the fix, since AGENTS.md is byte-capped.
+  assert.match(agents.body, /installed in `\.codex\/skills\/`/);
+  assert.ok(!/### premortem/.test(agents.body), 'AGENTS.md must not inline the body');
 
-  // Claude references the installed skill instead of inlining it.
+  // Claude references its own directory, not Codex's.
   assert.match(claude.body, /installed in `\.claude\/skills\/`/);
   assert.ok(!/### premortem/.test(claude.body), 'Claude config must not inline the body');
 });

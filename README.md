@@ -107,6 +107,7 @@ your-project/                 ← anywhere on disk
   .oac/communication-patterns.md  ← yours to tune; scaffolded once, never overwritten
   AGENTS.md  CLAUDE.md  …     ← generated config, one per selected tool
   .claude/skills/<name>/      ← skills copied in (Claude)
+  .codex/skills/<name>/       ← skills copied in (Codex)
 ```
 
 You edit rules **once** in `catalog/rules/`. Each project's generated files are assembled
@@ -303,23 +304,32 @@ oac init --yes --skills-only --skills=commit-pr,review-pr --dir=~/work/existing-
 | Target | Reads | `oac` writes |
 | --- | --- | --- |
 | Claude Code | `CLAUDE.md`, `.claude/skills/` | `CLAUDE.md` + copies selected skills |
-| Codex / universal | `AGENTS.md` | `AGENTS.md` |
+| Codex / universal | `AGENTS.md`, `.codex/skills/` | `AGENTS.md` + copies selected skills |
 | Devin | `AGENTS.md` | `AGENTS.md` (shared/deduped with Codex) |
 | Cursor | `.cursor/rules/*.mdc` | `.cursor/rules/oac.mdc` (with frontmatter) |
 | GitHub Copilot / VS Code | `.github/copilot-instructions.md` | same |
 | Windsurf | `.windsurfrules` | same |
 | Ollama | — (launches a harness) | `.oac/ollama/LAUNCH.md` + `.sh`/`.ps1` launchers |
 
-> **Skills note:** only Claude has a native skills mechanism, so skills are physically
-> copied into `.claude/skills/` and loaded on demand (Claude's config just lists them).
-> Every other tool reads a single instruction file, so the **full text of each selected
-> skill is inlined** into that file (`AGENTS.md`, `.cursor/rules/oac.mdc`,
-> `.github/copilot-instructions.md`, `.windsurfrules`) — the guidance reaches the tool
-> instead of pointing at files it can't open. A skill's **bundled markdown** (its
-> `references/`, `examples/`, …) is inlined too, under headings that match the paths the
-> playbook cites, so router-style skills stay portable. Only **non-text** extras
-> (scripts, assets, binaries) can't be inlined — skills that ship them say so, and those
-> files travel only with a Claude Code install.
+> **Skills note:** Claude and Codex both load `SKILL.md` folders natively, so skills are
+> physically copied into `.claude/skills/` and `.codex/skills/` and loaded on demand —
+> their config files just list them. Every other tool reads a single instruction file, so
+> the **full text of each selected skill is inlined** into that file
+> (`.cursor/rules/oac.mdc`, `.github/copilot-instructions.md`, `.windsurfrules`) — the
+> guidance reaches the tool instead of pointing at files it can't open. A skill's
+> **bundled markdown** (its `references/`, `examples/`, …) is inlined too, under headings
+> that match the paths the playbook cites, so router-style skills stay portable. Only
+> **non-text** extras (scripts, assets, binaries) can't be inlined — skills that ship
+> them say so, and those files travel only with a native install.
+
+> **Byte budget:** agent instruction files are capped by their consumers. Codex sums
+> every project doc against `project_doc_max_bytes` (default **32 KiB**) and then stops
+> reading, with no warning — anything past that point is guidance the tool never sees.
+> `oac` therefore budgets inlined skills: they are embedded in order until the next one
+> would not fit, and the remainder is listed by name instead of being written into a
+> truncated tail. If a generated file still exceeds the budget (a large rule set, or a
+> very long skill list), `oac sync` and `oac doctor` say so explicitly. Prefer targets
+> that install skills natively when you select many of them.
 
 ### Ollama models
 
