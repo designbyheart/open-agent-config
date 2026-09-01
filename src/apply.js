@@ -40,14 +40,15 @@ export function applyManifest(projectDir, manifest, { onWarn = () => {} } = {}) 
         const existing = exists(abs) ? readText(abs) : '';
         final = upsert(existing, a.body);
       }
-      writeText(abs, final);
+      const onDisk = writeText(abs, final);
       if (a.mode) chmodSafe(abs, a.mode);
       written.push(a.path);
-      // Measure what was actually written, not just what we generated: the
-      // managed block markers and any hand-written content the file already
-      // carried both count against the consumer's budget.
+      // Measure what actually landed on disk, not just what we generated: the
+      // managed block markers, any hand-written content the file already
+      // carried, and CRLF expansion on Windows all count against the
+      // consumer's budget.
       if (a.budgeted) {
-        const w = budgetWarning(a.path, docBytes(final));
+        const w = budgetWarning(a.path, docBytes(onDisk));
         if (w) onWarn(w);
       }
     }

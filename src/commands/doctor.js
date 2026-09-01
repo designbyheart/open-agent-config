@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { resolveProjectDir, exists, readText, listDirs } from '../fsutil.js';
 import { readManifest, MANIFEST_NAME } from '../manifest.js';
-import { hashSource } from '../catalog.js';
+import { hashSource, loadSkills } from '../catalog.js';
 import { docBytes } from '../generate.js';
 import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { buildArtifacts, skillDirsFor, budgetWarning } from '../targets/registry.js';
@@ -58,8 +58,12 @@ export async function cmdDoctor(ctx) {
   }
 
   // 3. Installed skills present, in every target that loads them natively, and
-  //    no leftovers from skills that were removed.
+  //    no leftovers from catalog skills that were deselected.
   const selected = new Set(doc.selectedSkills.map((s) => s.id));
+  // Only folders oac could have put there are its business. `.claude/skills/`
+  // is also where people keep their own hand-written skills, and flagging
+  // those would make doctor permanently red over files it must not touch.
+  const catalogIds = new Set(loadSkills().map((s) => s.id));
   for (const rel of skillDirsFor(manifest)) {
     for (const skill of doc.selectedSkills) {
       const dir = path.join(projectDir, ...rel.split('/'), skill.id);
@@ -69,7 +73,9 @@ export async function cmdDoctor(ctx) {
     const root = path.join(projectDir, ...rel.split('/'));
     if (!exists(root)) continue;
     for (const name of listDirs(root)) {
-      if (!selected.has(name)) problems.push(`Stale skill still installed: ${rel}/${name}/`);
+      if (catalogIds.has(name) && !selected.has(name)) {
+        problems.push(`Deselected catalog skill still installed: ${rel}/${name}/ (remove it by hand)`);
+      }
     }
   }
 

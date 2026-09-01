@@ -10,9 +10,12 @@ import {
   docBytes,
   AGENT_DOC_BUDGET_BYTES,
 } from '../src/generate.js';
-import { buildArtifacts, oversizeWarnings, skillDirsFor } from '../src/targets/registry.js';
+import { buildArtifacts, budgetWarning, skillDirsFor } from '../src/targets/registry.js';
 import { applyManifest } from '../src/apply.js';
-import { loadSkills } from '../src/catalog.js';
+import { loadSkills, hashSource } from '../src/catalog.js';
+import { readManifest, writeManifest, makeManifest } from '../src/manifest.js';
+import { cmdRemoveSkill } from '../src/commands/skill.js';
+import { cmdDoctor } from '../src/commands/doctor.js';
 
 /**
  * Codex sums every project doc against `project_doc_max_bytes` (32 KiB) and
@@ -20,12 +23,15 @@ import { loadSkills } from '../src/catalog.js';
  * generated docs on the readable side of that line.
  */
 
+// Descriptions and triggers are deliberately long: real catalog descriptions
+// run to ~370 characters, and the index-reserve bugs this file guards against
+// only appear when index rows are expensive. A terse fixture hides them.
 function bigSkill(id, kib) {
   return {
     id,
     name: id,
-    description: `The ${id} skill.`,
-    trigger: `When ${id}.`,
+    description: `The ${id} skill. ${'Detailed description text. '.repeat(12)}`.trim(),
+    trigger: `When ${id} applies. ${'Trigger condition prose. '.repeat(8)}`.trim(),
     body: `# ${id}\n\n${'x'.repeat(kib * 1024)}`,
   };
 }
@@ -73,7 +79,7 @@ test('a budget too small for any body still names every skill', () => {
 
 test('the index is the floor: it is never truncated to satisfy the budget', () => {
   // Naming every skill costs what it costs. We would rather blow the budget
-  // and have oversizeWarnings say so than drop skills from the list silently.
+  // and have budgetWarning say so than drop skills from the list silently.
   const skills = Array.from({ length: 40 }, (_, i) => bigSkill(`s${i}`, 20));
   const md = renderSkillsInline(skills, { budget: 512 });
   for (const s of skills) assert.match(md, new RegExp(`\\*\\*${s.name}\\*\\*`));
@@ -124,14 +130,11 @@ test('renderSkills names whichever skills dir the target uses', () => {
   assert.match(renderSkills(s, { installed: true }), /`\.claude\/skills\/`/);
 });
 
-test('oversizeWarnings flags a budgeted doc past the limit, quiet at the limit', () => {
-  const over = [{ path: 'AGENTS.md', budgeted: true, bytes: AGENT_DOC_BUDGET_BYTES + 1 }];
-  const under = [{ path: 'AGENTS.md', budgeted: true, bytes: AGENT_DOC_BUDGET_BYTES }];
-  const warnings = oversizeWarnings(over);
-  assert.equal(warnings.length, 1);
-  assert.match(warnings[0], /AGENTS\.md/);
-  assert.match(warnings[0], /stop reading/);
-  assert.deepEqual(oversizeWarnings(under), []);
+test('budgetWarning fires past the limit and is quiet at exactly the limit', () => {
+  const w = budgetWarning('AGENTS.md', AGENT_DOC_BUDGET_BYTES + 1);
+  assert.match(w, /AGENTS\.md/);
+  assert.match(w, /stop reading/);
+  assert.equal(budgetWarning('AGENTS.md', AGENT_DOC_BUDGET_BYTES), null);
 });
 
 test('every instruction file is marked budgeted, including Cursor raw output', () => {
@@ -188,13 +191,12 @@ test('the real catalog keeps an inline-only target inside the budget', () => {
     targets: ['windsurf'],
     skills: ['premortem', 'code-review', 'clean-code-architect', 'threat-model', 'learn'],
   };
-  const { artifacts, warnings } = buildArtifacts(manifest);
+  const { artifacts } = buildArtifacts(manifest);
   const rules = artifacts.find((a) => a.path === '.windsurfrules');
   assert.ok(
     rules.bytes <= AGENT_DOC_BUDGET_BYTES,
     `.windsurfrules is ${(rules.bytes / 1024).toFixed(1)} KiB, over budget`
   );
-  assert.deepEqual(warnings, []);
 });
 
 /** Skill names whose full body was inlined, ignoring the overflow heading. */
@@ -221,7 +223,7 @@ test('the whole catalog on an inline-only target fits and still carries content'
   // most must become index rows — that is arithmetic, not a bug. What matters
   // is that the file is readable end to end, every skill is still named, and
   // whatever room is left is spent on real bodies rather than wasted.
-  const every = loadSkills().map((s) => s.id);
+  const every = loadSkills().map((s) => s.id).filter((id) => !id.startsWith('_'));
   const { artifacts } = buildArtifacts({
     project: { name: 'T' },
     targets: ['windsurf'],
@@ -241,18 +243,52 @@ test('the whole catalog on an inline-only target fits and still carries content'
   }
 });
 
-test('index rows are clamped so a large selection cannot eat the whole budget', () => {
-  const wordy = {
-    id: 'w',
-    name: 'w',
-    description: 'D'.repeat(400),
-    trigger: 'T'.repeat(400),
-  };
-  const row = renderSkills([wordy], { installed: true });
-  assert.ok(docBytes(row) < 400, `index row is ${docBytes(row)} bytes; clamping is not applied`);
-  assert.match(row, /…/, 'a clamped row should show it was truncated');
-  // A short description is left exactly as written.
-  assert.match(renderSkills([{ id: 'x', name: 'x', description: 'Short.' }], { installed: true }), /— Short\./);
+test('index rows abbreviate only under budget pressure', () => {
+  const wordy = { id: 'w', name: 'w', description: 'Word '.repeat(200), trigger: 'Trig '.repeat(200) };
+
+  // Inline path: budget pressure is real, so rows are abbreviated.
+  const overflowed = renderSkillsInline([wordy, bigSkill('big', 40)], { budget: 4096 });
+  assert.match(overflowed, /…/, 'overflow rows must be clamped');
+  assert.match(overflowed, /Descriptions are abbreviated/);
+
+  // Native-install path with room: the description and trigger are the whole
+  // routing signal for whether to load the skill, so they stay verbatim.
+  const roomy = renderSkills([wordy], { installed: true, skillsDir: '.codex/skills' });
+  assert.ok(!roomy.includes('…'), 'the installed-skills index must not truncate when it fits');
+  assert.ok(roomy.includes('Word '.repeat(200).trim()), 'full description must survive');
+
+  // Same path under pressure: abbreviate rather than overrun the budget.
+  const squeezed = renderSkills([wordy], {
+    installed: true,
+    skillsDir: '.codex/skills',
+    budget: 400,
+  });
+  assert.match(squeezed, /…/, 'a selection that would not fit must be abbreviated');
+  assert.ok(docBytes(squeezed) < docBytes(roomy));
+});
+
+test('clamping never splits an astral character', () => {
+  // Slicing by UTF-16 code units leaves a lone surrogate, which becomes U+FFFD
+  // on write. Emoji in a third-party skill description would be corrupted.
+  for (let pad = 110; pad < 130; pad++) {
+    const s = { id: 'e', name: 'e', description: `${'a'.repeat(pad)}🚀 tail text here` };
+    const md = renderSkillsInline([s, bigSkill('big', 40)], { budget: 4096 });
+    assert.equal(
+      Buffer.from(md, 'utf8').toString('utf8'),
+      md,
+      `pad=${pad} produced an unpaired surrogate`
+    );
+    assert.ok(!/[\uD800-\uDFFF]/.test(md.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')), `pad=${pad}`);
+  }
+});
+
+test('a short description is left exactly as written even when clamping applies', () => {
+  // Body too large to inline, so the row goes through the clamped index path;
+  // a description under the limit must come out byte-identical.
+  const x = { id: 'x', name: 'x', description: 'Short.', body: `# x\n\n${'y'.repeat(40 * 1024)}` };
+  const md = renderSkillsInline([x], { budget: 4096 });
+  assert.match(md, /- \*\*x\*\* — Short\./);
+  assert.ok(!md.includes('…'));
 });
 
 test('codex installs skills into .codex/skills, claude into .claude/skills', () => {
@@ -339,32 +375,85 @@ test('remove-skill has a directory list that covers every install location', () 
   assert.deepEqual(skillDirsFor({ targets: [], skillsOnly: true }), ['.claude/skills']);
 });
 
-test('a skill removed from the manifest is deleted from every skills directory', () => {
+test('oac remove-skill deletes the skill from every skills directory', async () => {
+  // Drives the real command, not a reimplementation of it: the leak this
+  // guards against lived in cmdRemoveSkill's own path list, so a test that
+  // rebuilds that list cannot see it come back.
   const dir = tmpProject();
-  const manifest = {
-    project: { name: 'T' },
-    targets: ['claude', 'codex'],
-    skills: ['premortem', 'code-review'],
-    patterns: false,
-  };
-  applyManifest(dir, manifest);
+  writeManifest(
+    dir,
+    makeManifest({
+      project: { name: 'T' },
+      targets: ['claude', 'codex'],
+      skills: ['premortem', 'code-review'],
+      patterns: false,
+    })
+  );
+  applyManifest(dir, readManifest(dir));
   for (const d of ['.claude', '.codex']) {
-    assert.ok(fs.existsSync(path.join(dir, d, 'skills', 'premortem')));
+    assert.ok(fs.existsSync(path.join(dir, d, 'skills', 'premortem')), `setup: ${d} install`);
   }
 
-  // What cmdRemoveSkill does: drop it from the manifest, then clear every dir.
-  manifest.skills = manifest.skills.filter((s) => s !== 'premortem');
-  for (const rel of skillDirsFor(manifest)) {
-    fs.rmSync(path.join(dir, ...rel.split('/'), 'premortem'), { recursive: true, force: true });
+  const log = console.log;
+  console.log = () => {};
+  try {
+    await cmdRemoveSkill({ positionals: ['premortem'], flags: { dir } });
+  } finally {
+    console.log = log;
   }
-  applyManifest(dir, manifest);
 
   for (const d of ['.claude', '.codex']) {
     assert.equal(
       fs.existsSync(path.join(dir, d, 'skills', 'premortem')),
       false,
-      `${d}/skills/premortem survived removal`
+      `${d}/skills/premortem survived remove-skill`
     );
     assert.ok(fs.existsSync(path.join(dir, d, 'skills', 'code-review')), 'the kept skill stays');
   }
+  assert.deepEqual(readManifest(dir).skills, ['code-review']);
+});
+
+test('doctor flags a deselected catalog skill but never the user own skills', async () => {
+  const dir = tmpProject();
+  writeManifest(
+    dir,
+    makeManifest({
+      project: { name: 'T' },
+      targets: ['claude'],
+      skills: ['premortem'],
+      patterns: false,
+    })
+  );
+  const m = readManifest(dir);
+  applyManifest(dir, m);
+  m.sourceHash = hashSource({ stacks: m.stacks, skills: m.skills, ollama: m.ollama });
+  writeManifest(dir, m);
+
+  // A skill the team wrote by hand. `.claude/skills/` is Claude Code's own
+  // user-skill location; oac must not claim ownership of everything in it.
+  fs.mkdirSync(path.join(dir, '.claude', 'skills', 'our-house-style'), { recursive: true });
+  // A catalog skill left behind after being deselected — that one is oac's.
+  fs.cpSync(
+    path.join(dir, '.claude', 'skills', 'premortem'),
+    path.join(dir, '.claude', 'skills', 'code-review'),
+    { recursive: true }
+  );
+
+  const lines = [];
+  const log = console.log;
+  console.log = (s) => lines.push(String(s));
+  const exit = process.exitCode;
+  try {
+    await cmdDoctor({ flags: { dir } });
+  } finally {
+    console.log = log;
+    process.exitCode = exit;
+  }
+  const out = lines.join('\n');
+
+  assert.match(out, /Deselected catalog skill still installed: \.claude\/skills\/code-review\//);
+  assert.ok(
+    !out.includes('our-house-style'),
+    'a hand-written skill must never be reported as a problem'
+  );
 });

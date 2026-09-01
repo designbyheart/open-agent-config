@@ -46,12 +46,6 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
   const ids = manifest.targets || [];
   const claudeSelected = ids.includes('claude');
 
-  // Targets that load SKILL.md folders natively — each gets its own skills dir
-  // populated on apply, and only a short index in its config file.
-  const skillTargets = ids
-    .map((id) => BY_ID.get(id))
-    .filter((t) => t && t.supportsSkills && t.skillsDir);
-
   // What's left for an inlined skills section after the rules have had their
   // share of the document budget.
   const inlineBudget = Math.max(
@@ -69,7 +63,11 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
     // file (Cursor, Copilot, Windsurf, Devin) can't open those files, so the
     // playbooks are inlined for them instead — within the byte budget.
     const skillsMd = target.supportsSkills
-      ? renderSkills(doc.selectedSkills, { installed: true, skillsDir: target.skillsDir })
+      ? renderSkills(doc.selectedSkills, {
+          installed: true,
+          skillsDir: target.skillsDir,
+          budget: inlineBudget,
+        })
       : renderSkillsInline(doc.selectedSkills, { budget: inlineBudget });
     const rendered = target.render({
       projectName: doc.projectName,
@@ -97,7 +95,11 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
     }
   }
 
-  return { artifacts, doc, claudeSelected, skillTargets, warnings: oversizeWarnings(artifacts) };
+  // Deliberately no `warnings` here: the only honest size for an instruction
+  // file is the one measured after it is written, since hand-written content
+  // above the managed block counts too. Callers use `budgetWarning` on the
+  // finished bytes — see applyManifest and cmdDoctor.
+  return { artifacts, doc, claudeSelected };
 }
 
 /**
@@ -131,14 +133,4 @@ export function budgetWarning(relPath, bytes) {
   );
 }
 
-/**
- * Flag generated instruction docs that are already over budget before anything
- * else is added to the file. `budgeted` marks the artifacts their target reads
- * wholesale, so a Cursor `.mdc` is checked even though it is written raw.
- */
-export function oversizeWarnings(artifacts) {
-  return artifacts
-    .filter((a) => a.budgeted)
-    .map((a) => budgetWarning(a.path, a.bytes))
-    .filter(Boolean);
-}
+

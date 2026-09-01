@@ -36,6 +36,9 @@ export function writeText(p, content) {
     if (prev.includes('\r\n')) out = out.replace(/\n/g, '\r\n');
   }
   fs.writeFileSync(p, out);
+  // The bytes as they landed on disk — CRLF conversion makes this larger than
+  // the caller's string, which matters when sizing against a byte budget.
+  return out;
 }
 
 /** Recursively copy a directory (Node >=16.7). */
