@@ -14,6 +14,7 @@ import { buildArtifacts, budgetWarning, skillDirsFor } from '../src/targets/regi
 import { applyManifest } from '../src/apply.js';
 import { loadSkills, hashSource } from '../src/catalog.js';
 import { readManifest, writeManifest, makeManifest } from '../src/manifest.js';
+import { writeText } from '../src/fsutil.js';
 import { cmdRemoveSkill } from '../src/commands/skill.js';
 import { cmdDoctor } from '../src/commands/doctor.js';
 
@@ -314,7 +315,10 @@ test('clamping never splits an astral character', () => {
 });
 
 test('clamping cuts on a word boundary, not mid-word', () => {
-  const words = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet '.repeat(6);
+  // The limit must land *inside* a word for this to mean anything: 108
+  // characters of short words puts the 119-character cut eleven characters
+  // into "supercalifragilistic".
+  const words = `${'ab '.repeat(36)}supercalifragilistic and more text follows here`;
   const s = { id: 'w', name: 'w', description: words, body: `# w\n\n${'y'.repeat(40 * 1024)}` };
   const md = renderSkillsInline([s], { budget: 4096 });
   const row = md.split('\n').find((l) => l.startsWith('- **w**'));
@@ -452,24 +456,52 @@ test('a skills-loading target gets an abbreviated index rather than an oversize 
   for (const id of every) assert.ok(agents.body.includes(id), `${id} missing from the index`);
 });
 
-test('a CRLF file is measured as it lands on disk, not as generated', () => {
-  // writeText converts back to CRLF when the existing file uses it, so the
-  // bytes on disk exceed the generated string by one per line — enough to
-  // cross the budget on a file sitting just under it.
+test('writeText reports the bytes it actually wrote, CRLF expansion included', () => {
+  // On a Windows checkout writeText converts the whole file back to CRLF, so
+  // the bytes on disk exceed the string it was handed by one per line. The
+  // budget check consumes this return value; measuring the input instead
+  // under-counts by ~1.6%, which is the difference between warning and not on
+  // a file sitting near the limit. A whole-file size test for that band would
+  // be brittle, so the contract is pinned here and its use asserted below.
   const dir = tmpProject();
-  const preamble = `${'A line of hand-written preamble text.'.repeat(2)}\r\n`.repeat(700);
-  fs.writeFileSync(path.join(dir, 'AGENTS.md'), preamble);
+  const p = path.join(dir, 'AGENTS.md');
+  fs.writeFileSync(p, 'existing\r\nfile\r\n');
 
+  const input = 'one\ntwo\nthree\n';
+  const written = writeText(p, `existing\nfile\n${input}`);
+
+  assert.ok(written.includes('\r\n'), 'CRLF endings must be preserved');
+  assert.equal(
+    docBytes(written),
+    fs.statSync(p).size,
+    'the return value must match the file on disk byte for byte'
+  );
+  assert.ok(
+    docBytes(written) > docBytes(`existing\nfile\n${input}`),
+    'the CRLF form must be larger than the string handed in'
+  );
+});
+
+test('applyManifest sizes budgeted files from what writeText returned', () => {
+  // Guards the wiring, not just the contract. The preamble is CRLF, so the
+  // whole file is written back as CRLF and the on-disk size exceeds the
+  // generated string. Reporting the generated size would name a smaller
+  // number than the file actually is.
+  const dir = tmpProject();
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), `${'A hand-written line of preamble.'}\r\n`.repeat(1600));
   const warnings = [];
   applyManifest(
     dir,
     { project: { name: 'T' }, targets: ['codex'], skills: ['premortem'], patterns: false },
     { onWarn: (w) => warnings.push(w) }
   );
-
-  const onDisk = fs.statSync(path.join(dir, 'AGENTS.md')).size;
-  assert.ok(onDisk > AGENT_DOC_BUDGET_BYTES, 'sanity: the CRLF file is over budget');
-  assert.equal(warnings.length, 1, `on-disk size is ${onDisk} but no warning was raised`);
+  const size = fs.statSync(path.join(dir, 'AGENTS.md')).size;
+  assert.equal(warnings.length, 1);
+  assert.match(
+    warnings[0],
+    new RegExp(`\\b${(size / 1024).toFixed(1)} KiB\\b`),
+    `warning should report the on-disk size (${(size / 1024).toFixed(1)} KiB): ${warnings[0]}`
+  );
 });
 
 test('onWarn stays silent for a healthy project', () => {
