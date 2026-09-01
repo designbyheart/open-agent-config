@@ -134,7 +134,9 @@ export function renderSkills(
   // Descriptions and triggers are the whole routing signal for whether to load
   // a skill, so keep them verbatim while there is room. Only a selection large
   // enough to threaten the budget gets abbreviated — at ~370 characters each,
-  // fifty of them cost 17 KiB, over half the document.
+  // fifty of them cost 17 KiB, over half the document. As on the inline path,
+  // an index too large even when abbreviated is emitted anyway rather than
+  // dropping skills; budgetWarning reports the resulting file.
   const full = build(false);
   return docBytes(full) <= budget ? full : build(true);
 }
@@ -150,29 +152,39 @@ const INDEX_DESC_CHARS = 120;
 const INDEX_TRIGGER_CHARS = 80;
 
 /**
+ * Flatten to a single line. An index row is one markdown list item, and skill
+ * frontmatter may use a `|` block scalar, so a description can legitimately
+ * arrive with newlines in it. Emitting those verbatim breaks the list and can
+ * promote a line like `## Scope` into a real heading beside `## Skills`.
+ */
+function oneLine(text) {
+  return (text || '').replace(/\s+/g, ' ').trim();
+}
+
+/**
  * Trim to at most `max` characters, cutting on a word boundary and never
  * inside an astral character. Slicing a JS string by code units splits
  * surrogate pairs, and the lone half becomes U+FFFD once written — emoji in a
  * third-party skill description would be silently corrupted.
  */
 function clamp(text, max) {
-  const t = (text || '').replace(/\s+/g, ' ').trim();
-  const chars = [...t];
-  if (chars.length <= max) return t;
-  const cut = chars.slice(0, max - 1).join('');
+  const chars = [...oneLine(text)];
+  if (chars.length <= max) return chars.join('');
+  const cut = chars.slice(0, max - 1);
   const lastSpace = cut.lastIndexOf(' ');
-  // Only back up to a word boundary if it does not throw away most of the text.
+  // Back up to a word boundary only if it does not throw away most of the text.
+  // Both sides of this comparison are code-point counts.
   const body = lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut;
-  return `${body.trimEnd()}…`;
+  return `${body.join('').trimEnd()}…`;
 }
 
 /** One line per skill: name, description, trigger. The cheap form. */
 function skillIndexRows(skills, { clamped = false } = {}) {
   return skills
     .map((s) => {
-      const desc = clamped ? clamp(s.description, INDEX_DESC_CHARS) : s.description;
-      const rawTrigger = clamped ? clamp(s.trigger, INDEX_TRIGGER_CHARS) : s.trigger;
-      return `- **${s.name}** — ${desc}${s.trigger ? ` _(trigger: ${rawTrigger})_` : ''}`;
+      const desc = clamped ? clamp(s.description, INDEX_DESC_CHARS) : oneLine(s.description);
+      const trigger = clamped ? clamp(s.trigger, INDEX_TRIGGER_CHARS) : oneLine(s.trigger);
+      return `- **${s.name}** — ${desc}${trigger ? ` _(trigger: ${trigger})_` : ''}`;
     })
     .join('\n');
 }
@@ -180,8 +192,11 @@ function skillIndexRows(skills, { clamped = false } = {}) {
 /** The full inlined block for one skill: body plus any bundled markdown. */
 function renderInlineBlock(s) {
   const meta = [];
-  if (s.trigger) meta.push(`_When to use: ${s.trigger}_`);
-  else if (s.description) meta.push(`_${s.description}_`);
+  // Flattened for the same reason index rows are: these are emphasis spans, and
+  // a `|` block scalar description would otherwise close the span and promote
+  // its own lines to headings inside the skill's section.
+  if (s.trigger) meta.push(`_When to use: ${oneLine(s.trigger)}_`);
+  else if (s.description) meta.push(`_${oneLine(s.description)}_`);
   if (s.hasNonDocExtras) {
     meta.push(
       '_Note: this skill also ships non-text files (e.g. scripts, assets) that travel only ' +
@@ -218,7 +233,7 @@ function renderInlineBlock(s) {
  *
  * The index is the irreducible floor: naming every selected skill costs what it
  * costs, so a budget too small to hold even that is exceeded rather than
- * silently dropping skills from the list. `oversizeWarnings` catches the
+ * silently dropping skills from the list. `budgetWarning` catches the
  * resulting document, which is the honest outcome — the fix there is fewer
  * skills or a target that installs them, not a quieter renderer.
  */

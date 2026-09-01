@@ -85,6 +85,31 @@ test('the index is the floor: it is never truncated to satisfy the budget', () =
   for (const s of skills) assert.match(md, new RegExp(`\\*\\*${s.name}\\*\\*`));
 });
 
+test('a big playbook early in the list does not crowd out several small ones', () => {
+  // Fill order is smallest-first so one 20 KiB body cannot eat the budget that
+  // a dozen 1 KiB bodies would have shared. Uniform-size fixtures cannot see
+  // this — smallest-first and catalog order are identical there — so the sizes
+  // must be mixed, with the large ones first.
+  const skills = [
+    ...Array.from({ length: 5 }, (_, i) => bigSkill(`big${i}`, 20)),
+    ...Array.from({ length: 30 }, (_, i) => bigSkill(`small${i}`, 1)),
+  ];
+  const md = renderSkillsInline(skills, { budget: 32 * 1024 });
+  const inlined = (md.match(/^### (\w+)$/gm) || []).map((h) => h.replace(/^### /, ''));
+  assert.ok(
+    inlined.filter((n) => n.startsWith('small')).length >= 8,
+    `only ${inlined.length} bodies inlined (${inlined.join(', ')}); the big ones ate the budget`
+  );
+  assert.ok(docBytes(md) <= 32 * 1024);
+});
+
+test('inlined blocks are emitted in catalog order, not size order', () => {
+  const skills = [bigSkill('zzz', 8), bigSkill('aaa', 1), bigSkill('mmm', 4)];
+  const md = renderSkillsInline(skills, { budget: 32 * 1024 });
+  const order = (md.match(/^### (\w+)$/gm) || []).map((h) => h.replace(/^### /, ''));
+  assert.deepEqual(order, ['zzz', 'aaa', 'mmm'], 'output order must follow the manifest');
+});
+
 test('a long selection still inlines what fits instead of indexing everything', () => {
   // Regression: reserving against the whole selection rather than the part that
   // can still overflow crowded out every body, so a large catalog inlined none.
@@ -267,19 +292,73 @@ test('index rows abbreviate only under budget pressure', () => {
   assert.ok(docBytes(squeezed) < docBytes(roomy));
 });
 
+/** True if `s` contains a surrogate that is not part of a valid pair. */
+function hasLoneSurrogate(s) {
+  return /[\uD800-\uDFFF]/.test(s.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, ''));
+}
+
 test('clamping never splits an astral character', () => {
   // Slicing by UTF-16 code units leaves a lone surrogate, which becomes U+FFFD
-  // on write. Emoji in a third-party skill description would be corrupted.
-  for (let pad = 110; pad < 130; pad++) {
-    const s = { id: 'e', name: 'e', description: `${'a'.repeat(pad)}🚀 tail text here` };
-    const md = renderSkillsInline([s, bigSkill('big', 40)], { budget: 4096 });
-    assert.equal(
-      Buffer.from(md, 'utf8').toString('utf8'),
-      md,
-      `pad=${pad} produced an unpaired surrogate`
-    );
-    assert.ok(!/[\uD800-\uDFFF]/.test(md.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '')), `pad=${pad}`);
+  // on write. The fixture needs a body large enough to be pushed into the
+  // *index*: a small skill gets inlined, and the inline path prints the
+  // description raw, so it would never reach clamp() at all.
+  const body = `# e\n\n${'y'.repeat(40 * 1024)}`;
+  let sawClamp = false;
+  for (let pad = 100; pad < 140; pad++) {
+    const s = { id: 'e', name: 'e', description: `${'a'.repeat(pad)}🚀 tail text here`, body };
+    const md = renderSkillsInline([s], { budget: 4096 });
+    assert.ok(!hasLoneSurrogate(md), `pad=${pad} produced an unpaired surrogate`);
+    if (md.includes('…')) sawClamp = true;
   }
+  assert.ok(sawClamp, 'the fixture never actually reached the clamping path');
+});
+
+test('clamping cuts on a word boundary, not mid-word', () => {
+  const words = 'alpha bravo charlie delta echo foxtrot golf hotel india juliet '.repeat(6);
+  const s = { id: 'w', name: 'w', description: words, body: `# w\n\n${'y'.repeat(40 * 1024)}` };
+  const md = renderSkillsInline([s], { budget: 4096 });
+  const row = md.split('\n').find((l) => l.startsWith('- **w**'));
+  const truncated = row.slice(row.indexOf('—') + 2).replace(/….*$/, '');
+  const lastWord = truncated.trimEnd().split(' ').pop();
+  assert.ok(
+    words.split(' ').includes(lastWord),
+    `cut mid-word: row ends with "${lastWord}", which is not a whole word`
+  );
+});
+
+test('a multi-line description cannot break the row or inject a heading', () => {
+  // Skill frontmatter may use a `|` block scalar, so a description can arrive
+  // with newlines. Emitted verbatim it ends the list item and promotes the
+  // next line to a real heading beside `## Skills`.
+  const s = {
+    id: 'm',
+    name: 'm',
+    description: 'Reviews IaC changes.\n## Scope\n- terraform\n- pulumi',
+    trigger: 'When reviewing IaC.\n## Notes\nmore',
+  };
+  // Index paths: the skill must occupy exactly one list row.
+  for (const md of [
+    renderSkills([s], { installed: true, skillsDir: '.codex/skills' }),
+    renderSkills([s], { installed: true, skillsDir: '.codex/skills', budget: 80 }),
+    renderSkillsInline([{ ...s, body: `# m\n\n${'y'.repeat(40 * 1024)}` }], { budget: 4096 }),
+  ]) {
+    const rows = md.split('\n').filter((l) => l.startsWith('- **m**'));
+    assert.equal(rows.length, 1, 'the skill must occupy exactly one row');
+    assert.ok(!/^## Scope/m.test(md), 'a heading was injected into the document');
+    assert.ok(!/^## Notes/m.test(md), 'a heading was injected from the trigger');
+  }
+
+  // Inline path: the same text goes into an emphasis span in the meta line,
+  // where a raw newline would close the span and inject headings too.
+  const inlined = renderSkillsInline([s], { budget: 32 * 1024 });
+  assert.match(inlined, /### m/, 'the fixture should be inlined here');
+  assert.ok(!/^## Notes/m.test(inlined), 'a heading was injected into the inlined block');
+  assert.match(inlined, /_When to use: When reviewing IaC\. ## Notes more_/);
+});
+
+test('a skill with no description does not render "undefined"', () => {
+  const md = renderSkills([{ id: 'n', name: 'n' }], { installed: true });
+  assert.ok(!md.includes('undefined'));
 });
 
 test('a short description is left exactly as written even when clamping applies', () => {
@@ -351,6 +430,46 @@ test('onWarn fires for a file pushed over budget by hand-written content', () =>
     fs.statSync(path.join(dir, 'AGENTS.md')).size > AGENT_DOC_BUDGET_BYTES,
     'sanity: the file really is over budget'
   );
+});
+
+test('a skills-loading target gets an abbreviated index rather than an oversize file', () => {
+  // The index for a large selection is not free: unclamped it is ~17 KiB, and
+  // AGENTS.md must stay readable end to end. This pins that the budget is
+  // actually wired through to renderSkills, not just available to it.
+  const every = loadSkills().map((s) => s.id).filter((id) => !id.startsWith('_'));
+  const { artifacts } = buildArtifacts({
+    project: { name: 'T' },
+    targets: ['codex'],
+    stacks: ['nextjs'],
+    skills: every,
+  });
+  const agents = artifacts.find((a) => a.path === 'AGENTS.md');
+  assert.ok(
+    agents.bytes <= AGENT_DOC_BUDGET_BYTES,
+    `AGENTS.md is ${(agents.bytes / 1024).toFixed(1)} KiB with all ${every.length} skills`
+  );
+  assert.match(agents.body, /…/, 'rows should be abbreviated at this selection size');
+  for (const id of every) assert.ok(agents.body.includes(id), `${id} missing from the index`);
+});
+
+test('a CRLF file is measured as it lands on disk, not as generated', () => {
+  // writeText converts back to CRLF when the existing file uses it, so the
+  // bytes on disk exceed the generated string by one per line — enough to
+  // cross the budget on a file sitting just under it.
+  const dir = tmpProject();
+  const preamble = `${'A line of hand-written preamble text.'.repeat(2)}\r\n`.repeat(700);
+  fs.writeFileSync(path.join(dir, 'AGENTS.md'), preamble);
+
+  const warnings = [];
+  applyManifest(
+    dir,
+    { project: { name: 'T' }, targets: ['codex'], skills: ['premortem'], patterns: false },
+    { onWarn: (w) => warnings.push(w) }
+  );
+
+  const onDisk = fs.statSync(path.join(dir, 'AGENTS.md')).size;
+  assert.ok(onDisk > AGENT_DOC_BUDGET_BYTES, 'sanity: the CRLF file is over budget');
+  assert.equal(warnings.length, 1, `on-disk size is ${onDisk} but no warning was raised`);
 });
 
 test('onWarn stays silent for a healthy project', () => {

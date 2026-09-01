@@ -44,7 +44,6 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
   const doc = assemble(manifest, { projectDir });
   const sectionsMd = renderSections(doc.sections);
   const ids = manifest.targets || [];
-  const claudeSelected = ids.includes('claude');
 
   // What's left for an inlined skills section after the rules have had their
   // share of the document budget.
@@ -99,7 +98,7 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
   // file is the one measured after it is written, since hand-written content
   // above the managed block counts too. Callers use `budgetWarning` on the
   // finished bytes — see applyManifest and cmdDoctor.
-  return { artifacts, doc, claudeSelected };
+  return { artifacts, doc };
 }
 
 /**
