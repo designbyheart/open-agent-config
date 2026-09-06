@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 import { MANIFEST_NAME } from '../src/manifest.js';
+import { loadSkills, skillSourceDir } from '../src/catalog.js';
+import { AGENT_DOC_BUDGET_BYTES } from '../src/generate.js';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(REPO, 'bin', 'cli.js');
@@ -102,4 +104,38 @@ test('list and --help work without a project', () => {
   const dir = tmpProject();
   assert.equal(oac(dir, ['list', 'targets']).status, 0);
   assert.equal(oac(dir, ['--help']).status, 0);
+});
+
+
+test('all skills reach both native discovery paths with complete bundles and compact guidance', (t) => {
+  const dir = tmpProject();
+  t.after(() => fs.rmSync(path.dirname(dir), { recursive: true, force: true }));
+  const expected = loadSkills().filter((s) => s.id !== '_example').map((s) => s.id).sort();
+  const result = oac(dir, ['init', '--yes', '--targets=claude,codex', '--skills=all']);
+  assert.equal(result.status, 0, result.stderr);
+  const manifest = JSON.parse(fs.readFileSync(path.join(dir, MANIFEST_NAME), 'utf8'));
+  assert.deepEqual(manifest.skills.toSorted(), expected);
+
+  function verifyBundle(source, installed) {
+    const entries = fs.readdirSync(source).sort();
+    assert.deepEqual(fs.readdirSync(installed).sort(), entries);
+    for (const entry of entries) {
+      const from = path.join(source, entry);
+      const to = path.join(installed, entry);
+      if (fs.statSync(from).isDirectory()) verifyBundle(from, to);
+      else assert.deepEqual(fs.readFileSync(to), fs.readFileSync(from), to);
+    }
+  }
+  for (const [skillsDir, doc] of [['.claude/skills', 'CLAUDE.md'], ['.agents/skills', 'AGENTS.md']]) {
+    assert.deepEqual(fs.readdirSync(path.join(dir, skillsDir)).sort(), expected);
+    for (const id of expected) verifyBundle(skillSourceDir(id), path.join(dir, skillsDir, id));
+    const guidance = fs.readFileSync(path.join(dir, doc), 'utf8');
+    assert.ok(guidance.includes(skillsDir));
+    assert.ok(Buffer.byteLength(guidance) <= AGENT_DOC_BUDGET_BYTES);
+    assert.equal(oac(dir, ['sync']).status, 0);
+    assert.equal(fs.readFileSync(path.join(dir, doc), 'utf8'), guidance);
+  }
+  assert.equal(fs.existsSync(path.join(dir, '.codex/skills')), false);
+  const doctor = oac(dir, ['doctor']);
+  assert.equal(doctor.status, 0, doctor.stdout + doctor.stderr);
 });

@@ -1,3 +1,6 @@
+import path from 'node:path';
+import { exists, readText } from '../fsutil.js';
+import { upsert } from '../managed.js';
 import claude from './claude.js';
 import codex from './codex.js';
 import cursor from './cursor.js';
@@ -14,9 +17,6 @@ import {
   AGENT_DOC_BUDGET_BYTES,
   DOC_WRAPPER_ALLOWANCE_BYTES,
 } from '../generate.js';
-
-/** Never squeeze the inline skills section below this, even on a fat rule set. */
-const MIN_INLINE_BUDGET_BYTES = 2048;
 
 /** Where skills go when nothing else claims them (skills-only, no skill target). */
 export const DEFAULT_SKILLS_DIR = '.claude/skills';
@@ -45,43 +45,39 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
   const sectionsMd = renderSections(doc.sections);
   const ids = manifest.targets || [];
 
-  // What's left for an inlined skills section after the rules have had their
-  // share of the document budget.
-  const inlineBudget = Math.max(
-    MIN_INLINE_BUDGET_BYTES,
-    AGENT_DOC_BUDGET_BYTES - docBytes(sectionsMd) - DOC_WRAPPER_ALLOWANCE_BYTES
-  );
-
   const artifacts = [];
   const seenPaths = new Map();
   for (const id of ids) {
     const target = BY_ID.get(id);
     if (!target) continue;
-    // Claude and Codex physically install skills and load them on demand, so
-    // they only need a short reference list. Tools that read a single config
-    // file (Cursor, Copilot, Windsurf, Devin) can't open those files, so the
-    // playbooks are inlined for them instead — within the byte budget.
-    const skillsMd = target.supportsSkills
-      ? renderSkills(doc.selectedSkills, {
-          installed: true,
-          skillsDir: target.skillsDir,
-          budget: inlineBudget,
-        })
-      : renderSkillsInline(doc.selectedSkills, { budget: inlineBudget });
-    const rendered = target.render({
+    const render = (skillsMd) => target.render({
       projectName: doc.projectName,
       description: doc.description,
       sectionsMd,
       skillsMd,
       manifest,
     });
+    // Reserve each target's existing user text and actual wrapper before skills.
+    const budgets = render('').filter((a) => a.budgeted).map((a) => {
+      const file = projectDir && path.join(projectDir, a.path);
+      const existing = file && exists(file) ? readText(file) : '';
+      let base = a.type === 'doc' ? upsert(existing, a.body) : a.content;
+      base = base.replace(/\r\n/g, '\n');
+      if (existing.includes('\r\n')) base = base.replace(/\n/g, '\r\n');
+      return AGENT_DOC_BUDGET_BYTES - docBytes(base) - DOC_WRAPPER_ALLOWANCE_BYTES;
+    });
+    const budget = Math.max(0, Math.min(AGENT_DOC_BUDGET_BYTES, ...budgets));
+    const skillsMd = target.supportsSkills
+      ? renderSkills(doc.selectedSkills, { installed: true, skillsDir: target.skillsDir, budget })
+      : renderSkillsInline(doc.selectedSkills, { budget });
+    const rendered = render(skillsMd);
     for (const a of rendered) {
       const built = { targetId: id, ...a, bytes: docBytes(a.body ?? a.content) };
       // Dedupe shared outputs (e.g. Codex + Devin both write AGENTS.md). When
       // they collide, the skills-loading target wins regardless of the order
       // the user listed targets in — otherwise `--targets devin,codex` would
       // hand Codex an AGENTS.md with every skill inlined while its own
-      // `.codex/skills/` sat installed and unmentioned.
+      // `.agents/skills/` sat installed and unmentioned.
       const seenAt = seenPaths.get(a.path);
       if (seenAt !== undefined) {
         if (target.supportsSkills && !BY_ID.get(artifacts[seenAt].targetId)?.supportsSkills) {

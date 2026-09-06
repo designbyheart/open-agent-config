@@ -7,10 +7,20 @@ argument-hint: "[shape · audit|critique · animate|bolder|colorize|delight|layo
 license: Apache 2.0
 ---
 
-> **Vendored subset.** This copy ships `SKILL.md` and `reference/` only. The upstream
-> `scripts/` tree (anti-pattern detector, live browser loop, font matching) is **not** included,
-> so any `node .../scripts/*.mjs` or `npx impeccable *` step below will not run from this catalog.
-> For the full skill run `npx impeccable install`. Source: https://github.com/pbakaus/impeccable (Apache-2.0, v4.1.2).
+> **Runtime included.** Scripts and Codex agent definitions are vendored from upstream
+> `skill-v4.1.2` (commit `63b04e2530f5c7b41ea83c133daab24f34912456`). Use the loaded
+> skill directory for every script path, including paths printed in references.
+> Before parser or browser work, install this skill's runtime dependencies with
+> `npm ci --prefix <skill-base-dir>`. With Chrome already installed, set
+> `PUPPETEER_SKIP_DOWNLOAD=true` to avoid downloading another browser. Node 22.18+ is required.
+> Use the bundled `node <skill-base-dir>/scripts/detect.mjs` for detection rather than
+> fetching a potentially different CLI version through `npx impeccable`.
+> If a named specialist is unavailable, give a fresh general subagent its matching
+> `reference/degraded/{documenter,finish-reviewer,asset-producer,manual-edit-applier}.md`
+> prompt plus the requested input packet. With no subagent capability, perform that
+> pass locally and disclose it. Automatic hooks are not installed by oac; follow the
+> context loader's manual detector instruction.
+
 
 This skill gives you the tools and permission to create design that earns to be called out-of-distribution craft: Whereas before, your design work would have been safe, timid and measured, you now approach every design task as a award-winning design director with impeccable understanding for what makes exceptional design work: production-grade code, peak creativity, a clear POV, deep understanding of the needs of the client and users, and exceptional craft.
 

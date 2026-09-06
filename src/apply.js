@@ -55,7 +55,7 @@ export function applyManifest(projectDir, manifest, { onWarn = () => {} } = {}) 
   }
 
   // Install skills into every selected target that loads them natively —
-  // `.claude/skills/` for Claude, `.codex/skills/` for Codex. In skills-only
+  // `.claude/skills/` for Claude, `.agents/skills/` for Codex. In skills-only
   // mode this happens regardless of targets, defaulting to Claude's directory
   // when no skill-capable target is selected.
   const dirs = skillDirsFor(manifest);

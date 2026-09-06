@@ -59,7 +59,7 @@ agent.config.json            manifest (selected targets/skills/stacks/ollama, so
 AGENTS.md                         universal (Codex, Devin, AGENTS.md-aware tools)
 CLAUDE.md                         Claude Code
 .claude/skills/<name>/            installed skills (Claude)
-.codex/skills/<name>/             installed skills (Codex)
+.agents/skills/<name>/             installed skills (Codex)
 .cursor/rules/oac.mdc             Cursor
 .github/copilot-instructions.md   Copilot / VS Code
 .windsurfrules                    Windsurf

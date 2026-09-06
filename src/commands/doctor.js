@@ -68,7 +68,11 @@ export async function cmdDoctor(ctx) {
     for (const skill of doc.selectedSkills) {
       const dir = path.join(projectDir, ...rel.split('/'), skill.id);
       if (!exists(dir)) problems.push(`Skill not installed: ${rel}/${skill.id}/`);
-      else ok.push(`Skill installed: ${rel}/${skill.id}`);
+      else {
+        const missing = skill.requiredFiles.filter((file) => !exists(path.join(dir, file)));
+        for (const file of missing) problems.push(`Skill file missing: ${rel}/${skill.id}/${file}`);
+        if (!missing.length) ok.push(`Skill installed: ${rel}/${skill.id}`);
+      }
     }
     const root = path.join(projectDir, ...rel.split('/'));
     if (!exists(root)) continue;

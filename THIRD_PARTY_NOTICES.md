@@ -29,15 +29,17 @@ changes the license of the rest of this repository.
 
 Per Apache-2.0 section 4(b), changes made to redistributed files are stated here.
 
-**`catalog/skills/impeccable`** — vendored as a partial copy of upstream v4.1.2.
-- Included: `SKILL.md`, `reference/` (36 files).
-- Omitted: the upstream `scripts/` tree (~80 files, including a 1.1 MB font index),
-  `agents/`, and `hooks/`. Consequently the anti-pattern detector, live browser loop,
-  font matching, and the `npx impeccable *` commands are not available from this catalog.
-- Changed in `SKILL.md`: the `allowed-tools` frontmatter key (which scoped Bash access to
-  the omitted scripts) was removed, and a note describing this vendored subset was added
-  after the frontmatter.
-- For the complete, unmodified skill, install upstream directly with `npx impeccable install`.
+**`catalog/skills/impeccable`** — restored from upstream tag `skill-v4.1.2`,
+commit `63b04e2530f5c7b41ea83c133daab24f34912456`.
+- Included: existing `SKILL.md` and `reference/`, the complete prebuilt
+  `plugin/skills/impeccable/scripts/`, Codex `agents/`, LICENSE, and NOTICE.md.
+- Changed: `scripts/lib/provider.mjs` detects the installed Claude/Codex skill path;
+  `SKILL.md` omits the Claude-only allowed-tools restriction and documents dependency
+  setup and a general-subagent fallback. The browser launcher falls back to installed
+  Chrome on macOS/Linux when bundled Chrome is unavailable. Automatic hooks are not registered.
+- Added: a private runtime package manifest and lockfile for HTML parsing, browser
+  scanning, and live-edit parsing. Dependencies retain their own licenses.
+- Skill versions use `skill-v*` tags; npm CLI versions are a separate release stream.
 
 **All other redistributed skills** are unmodified copies of their upstream `SKILL.md`
 and supporting files. A `skill.json` metadata file was added alongside each one to match

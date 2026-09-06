@@ -152,7 +152,7 @@ test('one byte under an exact fit pushes the skill into the index', () => {
 
 test('renderSkills names whichever skills dir the target uses', () => {
   const s = [{ id: 'x', name: 'x', description: 'X.' }];
-  assert.match(renderSkills(s, { installed: true, skillsDir: '.codex/skills' }), /`\.codex\/skills\/`/);
+  assert.match(renderSkills(s, { installed: true, skillsDir: '.agents/skills' }), /`\.agents\/skills\/`/);
   assert.match(renderSkills(s, { installed: true }), /`\.claude\/skills\/`/);
 });
 
@@ -187,7 +187,7 @@ test('every instruction file is marked budgeted, including Cursor raw output', (
 
 test('AGENTS.md goes to the skills-loading target regardless of target order', () => {
   // Devin and Codex share AGENTS.md. First-writer-wins used to hand Codex an
-  // inlined AGENTS.md that never mentioned the .codex/skills it had installed.
+  // inlined AGENTS.md that never mentioned the .agents/skills it had installed.
   for (const targets of [
     ['devin', 'codex'],
     ['codex', 'devin'],
@@ -196,7 +196,7 @@ test('AGENTS.md goes to the skills-loading target regardless of target order', (
     const agents = artifacts.find((a) => a.path === 'AGENTS.md');
     assert.match(
       agents.body,
-      /installed in `\.codex\/skills\/`/,
+      /installed in `\.agents\/skills\/`/,
       `targets ${targets.join(',')} produced the inlined variant`
     );
   }
@@ -269,27 +269,18 @@ test('the whole catalog on an inline-only target fits and still carries content'
   }
 });
 
-test('index rows abbreviate only under budget pressure', () => {
+test('reference index rows abbreviate only under budget pressure', () => {
   const wordy = { id: 'w', name: 'w', description: 'Word '.repeat(200), trigger: 'Trig '.repeat(200) };
-
-  // Inline path: budget pressure is real, so rows are abbreviated.
   const overflowed = renderSkillsInline([wordy, bigSkill('big', 40)], { budget: 4096 });
-  assert.match(overflowed, /…/, 'overflow rows must be clamped');
+  assert.match(overflowed, /…/);
   assert.match(overflowed, /Descriptions are abbreviated/);
 
-  // Native-install path with room: the description and trigger are the whole
-  // routing signal for whether to load the skill, so they stay verbatim.
-  const roomy = renderSkills([wordy], { installed: true, skillsDir: '.codex/skills' });
-  assert.ok(!roomy.includes('…'), 'the installed-skills index must not truncate when it fits');
-  assert.ok(roomy.includes('Word '.repeat(200).trim()), 'full description must survive');
+  const roomy = renderSkills([wordy], { installed: false });
+  assert.ok(!roomy.includes('…'));
+  assert.ok(roomy.includes('Word '.repeat(200).trim()));
 
-  // Same path under pressure: abbreviate rather than overrun the budget.
-  const squeezed = renderSkills([wordy], {
-    installed: true,
-    skillsDir: '.codex/skills',
-    budget: 400,
-  });
-  assert.match(squeezed, /…/, 'a selection that would not fit must be abbreviated');
+  const squeezed = renderSkills([wordy], { installed: false, budget: 400 });
+  assert.match(squeezed, /…/);
   assert.ok(docBytes(squeezed) < docBytes(roomy));
 });
 
@@ -342,8 +333,8 @@ test('a multi-line description cannot break the row or inject a heading', () => 
   };
   // Index paths: the skill must occupy exactly one list row.
   for (const md of [
-    renderSkills([s], { installed: true, skillsDir: '.codex/skills' }),
-    renderSkills([s], { installed: true, skillsDir: '.codex/skills', budget: 80 }),
+    renderSkills([s], { installed: true, skillsDir: '.agents/skills' }),
+    renderSkills([s], { installed: true, skillsDir: '.agents/skills', budget: 80 }),
     renderSkillsInline([{ ...s, body: `# m\n\n${'y'.repeat(40 * 1024)}` }], { budget: 4096 }),
   ]) {
     const rows = md.split('\n').filter((l) => l.startsWith('- **m**'));
@@ -374,7 +365,7 @@ test('a short description is left exactly as written even when clamping applies'
   assert.ok(!md.includes('…'));
 });
 
-test('codex installs skills into .codex/skills, claude into .claude/skills', () => {
+test('codex installs skills into .agents/skills, claude into .claude/skills', () => {
   const dir = tmpProject();
   const manifest = {
     project: { name: 'T' },
@@ -384,9 +375,9 @@ test('codex installs skills into .codex/skills, claude into .claude/skills', () 
   };
   const written = applyManifest(dir, manifest);
 
-  assert.ok(fs.existsSync(path.join(dir, '.codex', 'skills', 'premortem', 'SKILL.md')));
+  assert.ok(fs.existsSync(path.join(dir, '.agents', 'skills', 'premortem', 'SKILL.md')));
   assert.ok(fs.existsSync(path.join(dir, '.claude', 'skills', 'premortem', 'SKILL.md')));
-  assert.ok(written.includes('.codex/skills/premortem/'));
+  assert.ok(written.includes('.agents/skills/premortem/'));
   assert.ok(written.includes('.claude/skills/premortem/'));
 });
 
@@ -400,7 +391,7 @@ test('a target that cannot load skills installs none', () => {
   };
   applyManifest(dir, manifest);
   assert.equal(fs.existsSync(path.join(dir, '.claude', 'skills')), false);
-  assert.equal(fs.existsSync(path.join(dir, '.codex', 'skills')), false);
+  assert.equal(fs.existsSync(path.join(dir, '.agents', 'skills')), false);
 });
 
 test('skills-only with no skill target still falls back to .claude/skills', () => {
@@ -520,7 +511,7 @@ test('remove-skill has a directory list that covers every install location', () 
   // removed from one, so a removed skill kept loading into Codex forever.
   assert.deepEqual(skillDirsFor({ targets: ['claude', 'codex'] }), [
     '.claude/skills',
-    '.codex/skills',
+    '.agents/skills',
   ]);
   assert.deepEqual(skillDirsFor({ targets: ['windsurf'] }), []);
   assert.deepEqual(skillDirsFor({ targets: [], skillsOnly: true }), ['.claude/skills']);
@@ -541,7 +532,7 @@ test('oac remove-skill deletes the skill from every skills directory', async () 
     })
   );
   applyManifest(dir, readManifest(dir));
-  for (const d of ['.claude', '.codex']) {
+  for (const d of ['.claude', '.agents']) {
     assert.ok(fs.existsSync(path.join(dir, d, 'skills', 'premortem')), `setup: ${d} install`);
   }
 
@@ -553,7 +544,7 @@ test('oac remove-skill deletes the skill from every skills directory', async () 
     console.log = log;
   }
 
-  for (const d of ['.claude', '.codex']) {
+  for (const d of ['.claude', '.agents']) {
     assert.equal(
       fs.existsSync(path.join(dir, d, 'skills', 'premortem')),
       false,

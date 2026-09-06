@@ -9,9 +9,9 @@
   {
     "id": "codex",
     "label": "Codex / universal (AGENTS.md)",
-    "writes": ["AGENTS.md", ".codex/skills/"],
+    "writes": ["AGENTS.md", ".agents/skills/"],
     "supportsSkills": true,
-    "detect": ["AGENTS.md", ".codex"]
+    "detect": ["AGENTS.md", ".agents/skills", ".codex"]
   },
   {
     "id": "devin",

@@ -29,7 +29,7 @@ export function upsert(existing, body) {
   if (hasBlock(existing)) {
     const before = existing.slice(0, existing.indexOf(START));
     const after = existing.slice(existing.indexOf(END) + END.length);
-    return `${before}${block.trim()}${after.startsWith('\n') ? after : '\n' + after}`;
+    return `${before}${block.trim()}${/^\r?\n/.test(after) ? after : '\n' + after}`;
   }
   const sep = existing.endsWith('\n') ? '\n' : '\n\n';
   return `${existing}${sep}${block}`;

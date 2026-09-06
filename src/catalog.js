@@ -115,6 +115,7 @@ export function loadSkills() {
         body: body.trim(),
         extraDocs,
         hasNonDocExtras,
+        requiredFiles: ['SKILL.md', ...relFiles],
         dir: skillDir,
       };
     });

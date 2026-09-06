@@ -65,7 +65,7 @@ test('skill-loading targets get the short list and name their own skills dir', (
 
   // Codex loads SKILL.md folders natively, so AGENTS.md references rather than
   // inlines — the whole point of the fix, since AGENTS.md is byte-capped.
-  assert.match(agents.body, /installed in `\.codex\/skills\/`/);
+  assert.match(agents.body, /installed in `\.agents\/skills\/`/);
   assert.ok(!/### premortem/.test(agents.body), 'AGENTS.md must not inline the body');
 
   // Claude references its own directory, not Codex's.

@@ -14,7 +14,7 @@ import { readProjectPatterns } from './patterns.js';
  */
 export const AGENT_DOC_BUDGET_BYTES = 32768;
 
-/** Headroom for a target's own wrapper: title, blurb, managed-block markers. */
+/** Reserve for skill separators and line-ending expansion after the base document. */
 export const DOC_WRAPPER_ALLOWANCE_BYTES = 1024;
 
 /** Byte length of a string as it will actually be written to disk. */
@@ -117,26 +117,24 @@ export function renderSections(sections) {
   return sections.map((s) => s.md.trim()).join('\n\n---\n\n');
 }
 
-/**
- * Skills section. For Claude the skills are physically installed in
- * `.claude/skills/`; for other tools they're listed as reference playbooks.
- */
+/** Compact routing for installed skills; full instructions stay in SKILL.md. */
 export function renderSkills(
   selectedSkills,
   { installed, skillsDir = '.claude/skills', budget = Infinity } = {}
 ) {
   if (!selectedSkills.length) return '';
-  const intro = installed
-    ? `These skills are installed in \`${skillsDir}/\` and load on demand:`
-    : `Reference playbooks for this project (full text in \`${skillsDir}/\` if present):`;
+  if (installed) {
+    const intro = `Skills are installed in \`${skillsDir}/\`. Read the matching SKILL.md only when needed.`;
+    const build = (rows) => `## Skills\n\n${intro}\n\n${rows.join('\n')}`;
+    const compact = build(selectedSkills.map((s) =>
+      `- **${s.name}** — ${clamp(s.description || s.trigger, INDEX_DESC_CHARS)}`
+    ));
+    if (docBytes(compact) <= budget) return compact;
+    // Keep every skill discoverable even when routing descriptions cannot fit.
+    return build(selectedSkills.map((s) => `- **${s.name}** (\`${s.id}/SKILL.md\`)`));
+  }
+  const intro = `Reference playbooks for this project (full text in \`${skillsDir}/\` if present):`;
   const build = (clamped) => `## Skills\n\n${intro}\n\n${skillIndexRows(selectedSkills, { clamped })}`;
-
-  // Descriptions and triggers are the whole routing signal for whether to load
-  // a skill, so keep them verbatim while there is room. Only a selection large
-  // enough to threaten the budget gets abbreviated — at ~370 characters each,
-  // fifty of them cost 17 KiB, over half the document. As on the inline path,
-  // an index too large even when abbreviated is emitted anyway rather than
-  // dropping skills; budgetWarning reports the resulting file.
   const full = build(false);
   return docBytes(full) <= budget ? full : build(true);
 }
@@ -144,9 +142,8 @@ export function renderSkills(
 /**
  * How much of a skill's description and trigger an abbreviated index row may
  * carry. Full descriptions run to ~370 characters, so an unclamped index for
- * fifty skills costs ~17 KiB, over half the agent-doc budget. Clamping is
- * applied only under real pressure — always on the overflow path, and on the
- * installed-skills index only when the verbatim version would not fit.
+ * fifty skills costs ~17 KiB. Installed skills always use concise descriptions.
+ * Inline overflow rows abbreviate descriptions and triggers under pressure.
  */
 const INDEX_DESC_CHARS = 120;
 const INDEX_TRIGGER_CHARS = 80;
@@ -231,7 +228,7 @@ function renderInlineBlock(s) {
  * of being emitted past the point the tool stops reading. Without a budget the
  * whole catalog is inlined, which is only safe for a doc nothing truncates.
  *
- * The index is the irreducible floor: naming every selected skill costs what it
+ * A names-only index is the irreducible floor: naming every selected skill costs what it
  * costs, so a budget too small to hold even that is exceeded rather than
  * silently dropping skills from the list. `budgetWarning` catches the
  * resulting document, which is the honest outcome — the fix there is fewer
@@ -254,6 +251,7 @@ export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
   // list would otherwise consume the whole budget and push a dozen small ones
   // that would all have fitted into the index. Output stays in catalog order —
   // only the fit decision is reordered.
+  const namesOnly = docBytes(header) + indexCost(selectedSkills) > budget;
   const bySize = [...blocks].sort((a, b) => docBytes(a.md) - docBytes(b.md));
   const keep = new Set();
   const deferred = [];
@@ -267,7 +265,7 @@ export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
     // yet considered. Reserving against only what can still land in the index,
     // rather than against the whole selection, is what keeps a long skill list
     // from crowding out every body and inlining nothing at all.
-    const worstCaseIndex = indexCost([...deferred, ...bySize.slice(i + 1).map((x) => x.skill)]);
+    const worstCaseIndex = indexCost([...deferred, ...bySize.slice(i + 1).map((x) => x.skill)], namesOnly);
     if (used + cost + worstCaseIndex <= budget) {
       keep.add(b);
       used += cost;
@@ -283,13 +281,13 @@ export function renderSkillsInline(selectedSkills, { budget = Infinity } = {}) {
 
   const parts = [header.trimEnd()];
   if (inlined.length) parts.push(inlined.map((b) => b.md).join(JOIN));
-  parts.push(overflowSection(overflow));
+  parts.push(overflowSection(overflow, { namesOnly }));
   return parts.join('\n\n');
 }
 
 /** Bytes the overflow index costs when appended to a section, 0 for none. */
-function indexCost(skills) {
-  return skills.length ? docBytes('\n\n' + overflowSection(skills)) : 0;
+function indexCost(skills, namesOnly = false) {
+  return skills.length ? docBytes('\n\n' + overflowSection(skills, { namesOnly })) : 0;
 }
 
 /**
@@ -297,12 +295,13 @@ function indexCost(skills) {
  * embedded so the agent knows they exist and can ask for them, instead of the
  * guidance vanishing into a truncated tail.
  */
-function overflowSection(skills) {
+function overflowSection(skills, { namesOnly = false } = {}) {
   return [
     '### Skills not inlined here',
     '_These are selected for this project but exceeded the byte budget for this file. ' +
-      'Descriptions are abbreviated; ask for one by name before working in its area and ' +
+      (namesOnly ? 'Names only; ' : 'Descriptions are abbreviated; ') +
+      'ask for one by name before working in its area and ' +
       'it can be supplied in full._',
-    skillIndexRows(skills, { clamped: true }),
+    namesOnly ? skills.map((s) => `- **${s.name}**`).join('\n') : skillIndexRows(skills, { clamped: true }),
   ].join('\n\n');
 }
