@@ -8,4 +8,4 @@ label: Next.js / React / TypeScript
 - Prefer Server Components; reach for client components only when needed.
 - One component per file; name the props interface `{ComponentName}Props`.
 - No hard-coded colors/spacing — use design tokens from the design system.
-- `npm run build`, `npm run lint`, and `npm run type-check` must pass.
+- `npm run lint` and `npm run type-check` as you work; `npm run build` before pushing.

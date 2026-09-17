@@ -36,7 +36,7 @@ Define verifiable acceptance criteria. For bugs, reproduce with a test before fi
 
 ## 8. Quality gates
 
-Before completion, including small edits, run the project's defined build, tests, lint, and type checks if typed. Check for accidental unrelated changes. Report actual results and any failures or unverified work. Never claim partial work is finished.
+Run lint and type checks as you work. Build and test once, when the change set is complete and before pushing, not after every edit and never as a hidden background run. A subagent builds only for changes spanning a large part of the codebase. Check for accidental unrelated changes. Report actual results and any failures or unverified work. Never claim partial work is finished.
 
 ## 9. When to act
 
