@@ -19,7 +19,9 @@ Use plain, specific language, concrete nouns, file references, and numbers. Pref
 
 `load-bearing` · `worth stating plainly` · `here's the honest truth` · `the real tension` ·
 `carry the argument` · `you're absolutely right` · `great question` · `let me dive into` ·
-`it's worth noting that` · `I hope this helps` · `at the end of the day` · `the key insight here`
+`it's worth noting that` · `I hope this helps` · `at the end of the day` · `the key insight here` ·
+`blast radius` · `surface area` · `signal` · `topology` · `upper bound` · `precedence level` ·
+`single point of failure` · `non-trivial` · `holistic` · `robust`
 
 ## Avoid: style
 

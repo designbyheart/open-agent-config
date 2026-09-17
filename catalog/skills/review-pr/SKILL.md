@@ -74,12 +74,16 @@ Only report real findings. If there are no findings, say so explicitly.
    - suggested fix or question
 
 6. **Present findings to the user before publishing**
-   Group by severity, highest first.
-   Use a compact structure:
+   Head the report with the PR number, title and url, so it is identifiable without
+   scrolling back. Group findings by severity, highest first. Each one is:
    - `blocker` / `high` / `medium` / `low`
-   - path + short title
-   - 1-3 sentence rationale
-   - whether it should be posted inline or in the review summary
+   - path + line
+   - the issue with this code change, one line
+   - the change being asked for, one line, phrased as a request ("Could we...",
+     "Would it be worth...") rather than an order
+   Nothing else. No what/why/how split, no follow-up section, no tests-to-add or
+   verify-manually ideas, no notes on what the change got right. Repeat the PR url on
+   the last line so it can be grabbed for pasting comments.
 
 7. **Get explicit user selection**
    Ask which findings to publish:
@@ -117,6 +121,9 @@ Only report real findings. If there are no findings, say so explicitly.
 ## Rules
 
 - Do not post review comments before showing findings to the user.
+- Write in plain everyday English, in the user's voice, so nothing posted publicly reads as
+  machine generated. No em dashes, no analytical framing, no vocabulary a person would not
+  say out loud.
 - Do not invent severity; low-confidence issues should be framed as questions or left out.
 - Prefer no finding over noisy findings.
 - If exact inline anchoring is uncertain, use a review summary comment instead of guessing.
