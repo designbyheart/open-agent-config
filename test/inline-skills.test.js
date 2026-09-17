@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { renderSkillsInline, renderSkills } from '../src/generate.js';
+import { parseFrontmatter, loadSkills } from '../src/catalog.js';
 import { buildArtifacts } from '../src/targets/registry.js';
 
 const fakeSkill = {
@@ -77,4 +78,20 @@ test('renderSkills (Claude list) stays a one-line-per-skill reference', () => {
   const md = renderSkills([fakeSkill], { installed: true });
   assert.match(md, /- \*\*demo\*\* — A demo skill\./);
   assert.ok(!/#### Section/.test(md), 'list mode must not embed the body');
+});
+
+// A CRLF SKILL.md reaches us from Windows checkouts and from `import-skill`
+// pulling a skill off someone else's machine. Both regexes below used to be
+// LF-only, which left the raw frontmatter and a duplicate title in the body.
+test('a CRLF skill parses and loses its H1 the same as an LF one', () => {
+  const crlf = ['---', 'name: demo', 'description: A demo skill.', '---', '', '# Demo Skill', '', '## Section', '', 'Body text.'].join('\r\n');
+  const { data, body } = parseFrontmatter(crlf);
+
+  assert.equal(data.name, 'demo');
+  assert.equal(data.description, 'A demo skill.');
+
+  const md = renderSkillsInline([{ ...fakeSkill, body: body.trim() }]);
+  assert.ok(!/^---$/m.test(md), 'frontmatter must not survive into the rendered body');
+  assert.equal((md.match(/### demo/g) || []).length, 1, 'the H1 must be stripped, not demoted into a second heading');
+  assert.match(md, /\r?\n#### Section\r?\n/, 'inner headings still demote');
 });
