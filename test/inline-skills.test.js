@@ -95,3 +95,10 @@ test('a CRLF skill parses and loses its H1 the same as an LF one', () => {
   assert.equal((md.match(/### demo/g) || []).length, 1, 'the H1 must be stripped, not demoted into a second heading');
   assert.match(md, /\r?\n#### Section\r?\n/, 'inner headings still demote');
 });
+
+test('skill file lists stay posix so they read the same on every platform', () => {
+  const nested = loadSkills().find((s) => s.requiredFiles.some((f) => f.includes('/')));
+  assert.ok(nested, 'expected at least one catalog skill with a nested file');
+  for (const f of nested.requiredFiles) assert.ok(!f.includes('\\'), `${f} must not carry a backslash`);
+  for (const doc of nested.extraDocs) assert.ok(!doc.path.includes('\\'), `${doc.path} must not carry a backslash`);
+});
