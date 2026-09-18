@@ -28,7 +28,7 @@ Read only the needed lines and do not re-read known material. Delegate heavy mul
 
 ## 6. Delegate at the right altitude
 
-Delegate bounded outcomes, not individual lines. Run independent agents or tools in parallel. Use plan mode before changes spanning 3+ files or destructive/hard-to-undo actions. For unattended loops, define the objective, measurable success criteria, and CAN/CANNOT boundaries using the `program.md` template in `delegate-and-orchestrate`.
+Delegate bounded outcomes, not individual lines. Run independent agents or tools in parallel. On non-trivial work the session talking to the user stays the coordinator: it holds context, defines tasks, synthesizes what returns, and stays free to refine scope while delegated work runs. Treat an agent's report as evidence, not truth. Use plan mode before changes spanning 3+ files or destructive/hard-to-undo actions. For unattended loops, define the objective, measurable success criteria, and CAN/CANNOT boundaries using the `program.md` template in `delegate-and-orchestrate`.
 
 ## 7. Goal-driven execution
 

@@ -4,7 +4,7 @@
 
 **One rules source. Every AI editor.** Write your engineering rules and skills once, and
 `oac` generates the config each tool actually reads — `CLAUDE.md`, `AGENTS.md`,
-`.cursor/rules/*.mdc`, `.github/copilot-instructions.md`, `.windsurfrules` — plus copies
+`.cursor/rules/*.mdc`, `.github/copilot-instructions.md`, `.windsurfrules`, `HERMES.md` — plus copies
 the skills you selected into place.
 
 Same rules in, same behaviour out, regardless of which editor a developer opens.
@@ -335,17 +335,19 @@ oac init --yes --skills-only --skills=commit-pr,review-pr --dir=~/work/existing-
 | Claude Code | `CLAUDE.md`, `.claude/skills/` | `CLAUDE.md` + copies selected skills |
 | Codex / universal | `AGENTS.md`, `.agents/skills/` | `AGENTS.md` + copies selected skills |
 | Devin | `AGENTS.md` | `AGENTS.md` (shared/deduped with Codex) |
+| Pi | `AGENTS.md`, `.pi/skills/` | `AGENTS.md` (shared/deduped) + copies selected skills |
+| Hermes Agent | `HERMES.md` (ahead of `AGENTS.md`) | `HERMES.md` |
 | Cursor | `.cursor/rules/*.mdc` | `.cursor/rules/oac.mdc` (with frontmatter) |
 | GitHub Copilot / VS Code | `.github/copilot-instructions.md` | same |
 | Windsurf | `.windsurfrules` | same |
 | Ollama | — (launches a harness) | `.oac/ollama/LAUNCH.md` + `.sh`/`.ps1` launchers |
 
-> **Skills note:** Claude and Codex both load `SKILL.md` folders natively, so skills are
-> physically copied into `.claude/skills/` and `.agents/skills/` and loaded on demand —
-> their config files just list them. Every other tool reads a single instruction file, so
-> the **full text of each selected skill is inlined** into that file
-> (`.cursor/rules/oac.mdc`, `.github/copilot-instructions.md`, `.windsurfrules`) — the
-> guidance reaches the tool instead of pointing at files it can't open. A skill's
+> **Skills note:** Claude, Codex and Pi load `SKILL.md` folders natively, so skills are
+> physically copied into `.claude/skills/`, `.agents/skills/` and `.pi/skills/` and loaded
+> on demand — their config files just list them. Every other tool reads a single instruction
+> file, so the **full text of each selected skill is inlined** into that file
+> (`.cursor/rules/oac.mdc`, `.github/copilot-instructions.md`, `.windsurfrules`, `HERMES.md`)
+> — the guidance reaches the tool instead of pointing at files it can't open. A skill's
 > **bundled markdown** (its `references/`, `examples/`, …) is inlined too, under headings
 > that match the paths the playbook cites, so router-style skills stay portable. Only
 > **non-text** extras (scripts, assets, binaries) can't be inlined — skills that ship
@@ -354,7 +356,8 @@ oac init --yes --skills-only --skills=commit-pr,review-pr --dir=~/work/existing-
 > **Byte budget:** agent instruction files are capped by their consumers. Codex sums
 > every project doc against `project_doc_max_bytes` (default **32 KiB**) and then stops
 > reading, with no warning — anything past that point is guidance the tool never sees.
-> `oac` therefore budgets inlined skills: they are embedded in order until the next one
+> The cap is per consumer: Hermes truncates each context file at **20,000 characters**, so
+> `HERMES.md` is sized against that instead. `oac` therefore budgets inlined skills: they are embedded in order until the next one
 > would not fit, and the remainder is listed by name instead of being written into a
 > truncated tail. If a generated file still exceeds the budget (a large rule set, or a
 > very long skill list), `oac sync` and `oac doctor` say so explicitly. Prefer targets
@@ -368,7 +371,8 @@ OpenCode, OpenClaw, Hermes, Codex App) with an Ollama model as the engine — an
 harness reads the `CLAUDE.md` / `AGENTS.md` that `oac` already generated.
 
 Select the **Ollama** target and provide your model tags (defaults:
-`kimi-k2.6:cloud`, `gemma4:cloud`, `minimax3:cloud`). `oac` writes:
+`kimi-k2.6:cloud`, `gemma4:cloud`, `minimax3:cloud`, `deepseek-v4.1-flash:cloud`,
+`glm-5.3-flash:cloud`, `ornith-1.5:35b`). `oac` writes:
 
 - `.oac/ollama/LAUNCH.md` — a table of every `ollama launch` command for this project.
 - `.oac/ollama/<app>--<model>.sh` and `.ps1` — one runnable launcher per app × model,
@@ -517,7 +521,7 @@ claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
 | Flag | Meaning |
 | --- | --- |
 | `--dir=<path>` | Operate on another directory (default: current) |
-| `--targets=a,b` | `claude`, `codex`, `cursor`, `copilot`, `windsurf`, `ollama` |
+| `--targets=a,b` | `claude`, `codex`, `devin`, `hermes`, `pi`, `cursor`, `copilot`, `windsurf`, `ollama` |
 | `--stacks=a,b` | Stack rule fragments (see `oac list stacks`) |
 | `--skills=a,b` | Skills to install |
 | `--skills-only` | Install skills + manifest only; never write or modify rule files |
