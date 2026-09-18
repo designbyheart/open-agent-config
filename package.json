@@ -1,7 +1,7 @@
 {
   "name": "@designbyheart/open-agent-config",
-  "version": "0.1.6",
-  "description": "Configure any AI coding agent or editor (Claude, Cursor, Copilot, Codex, Windsurf, \u2026) for a project from one canonical rules source.",
+  "version": "0.2.0",
+  "description": "Configure any AI coding agent or editor (Claude, Cursor, Copilot, Codex, Windsurf, …) for a project from one canonical rules source.",
   "author": "Predrag Jevtic (https://github.com/designbyheart)",
   "license": "MIT",
   "type": "module",
