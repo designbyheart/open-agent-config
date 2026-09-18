@@ -1,0 +1,3 @@
+# Keep the working tree LF on every platform. The generator parses frontmatter,
+# strips H1s, and budgets bytes on its own files, and all of that assumes LF.
+* text=auto eol=lf
