@@ -7,6 +7,8 @@ import cursor from './cursor.js';
 import copilot from './copilot.js';
 import windsurf from './windsurf.js';
 import devin from './devin.js';
+import hermes from './hermes.js';
+import pi from './pi.js';
 import ollama from './ollama.js';
 import {
   assemble,
@@ -21,7 +23,7 @@ import {
 /** Where skills go when nothing else claims them (skills-only, no skill target). */
 export const DEFAULT_SKILLS_DIR = '.claude/skills';
 
-const TARGETS = [claude, codex, devin, cursor, copilot, windsurf, ollama];
+const TARGETS = [claude, codex, devin, hermes, pi, cursor, copilot, windsurf, ollama];
 const BY_ID = new Map(TARGETS.map((t) => [t.id, t]));
 
 export function allTargets() {
@@ -57,6 +59,9 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
       skillsMd,
       manifest,
     });
+    // Each consumer truncates at its own limit — Hermes stops at 20 KB where
+    // Codex allows 32 KiB — so size the doc against the target's own budget.
+    const docBudget = target.docBudget ?? AGENT_DOC_BUDGET_BYTES;
     // Reserve each target's existing user text and actual wrapper before skills.
     const budgets = render('').filter((a) => a.budgeted).map((a) => {
       const file = projectDir && path.join(projectDir, a.path);
@@ -64,15 +69,15 @@ export function buildArtifacts(manifest, { projectDir } = {}) {
       let base = a.type === 'doc' ? upsert(existing, a.body) : a.content;
       base = base.replace(/\r\n/g, '\n');
       if (existing.includes('\r\n')) base = base.replace(/\n/g, '\r\n');
-      return AGENT_DOC_BUDGET_BYTES - docBytes(base) - DOC_WRAPPER_ALLOWANCE_BYTES;
+      return docBudget - docBytes(base) - DOC_WRAPPER_ALLOWANCE_BYTES;
     });
-    const budget = Math.max(0, Math.min(AGENT_DOC_BUDGET_BYTES, ...budgets));
+    const budget = Math.max(0, Math.min(docBudget, ...budgets));
     const skillsMd = target.supportsSkills
       ? renderSkills(doc.selectedSkills, { installed: true, skillsDir: target.skillsDir, budget })
       : renderSkillsInline(doc.selectedSkills, { budget });
     const rendered = render(skillsMd);
     for (const a of rendered) {
-      const built = { targetId: id, ...a, bytes: docBytes(a.body ?? a.content) };
+      const built = { targetId: id, docBudget, ...a, bytes: docBytes(a.body ?? a.content) };
       // Dedupe shared outputs (e.g. Codex + Devin both write AGENTS.md). When
       // they collide, the skills-loading target wins regardless of the order
       // the user listed targets in — otherwise `--targets devin,codex` would
@@ -119,11 +124,11 @@ export function skillDirsFor(manifest) {
  * block markers and any hand-written content above them, and is therefore the
  * number that actually decides what the tool reads.
  */
-export function budgetWarning(relPath, bytes) {
-  if (bytes <= AGENT_DOC_BUDGET_BYTES) return null;
+export function budgetWarning(relPath, bytes, limit = AGENT_DOC_BUDGET_BYTES) {
+  if (bytes <= limit) return null;
   return (
-    `${relPath} is ${(bytes / 1024).toFixed(1)} KiB, over the ${AGENT_DOC_BUDGET_BYTES / 1024} KiB ` +
-    'agent-doc budget. Codex and similar tools stop reading at that point without warning, so the ' +
+    `${relPath} is ${(bytes / 1024).toFixed(1)} KiB, over the ${(limit / 1024).toFixed(1)} KiB ` +
+    'budget its consumer allows. Tools stop reading at that point without warning, so the ' +
     'tail is ignored. Trim rules, shorten hand-written content in the file, or select fewer skills.'
   );
 }
