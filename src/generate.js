@@ -24,7 +24,7 @@ export function docBytes(text) {
 
 /** Strip a single leading `# H1` line from a fragment body. */
 function stripH1(body) {
-  return body.replace(/^#\s+.*\n+/, '').trim();
+  return body.replace(/^#\s+.*(?:\r?\n)+/, '').trim();
 }
 
 /**
