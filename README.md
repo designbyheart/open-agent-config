@@ -368,7 +368,8 @@ OpenCode, OpenClaw, Hermes, Codex App) with an Ollama model as the engine — an
 harness reads the `CLAUDE.md` / `AGENTS.md` that `oac` already generated.
 
 Select the **Ollama** target and provide your model tags (defaults:
-`kimi-k2.6:cloud`, `gemma4:cloud`, `minimax3:cloud`). `oac` writes:
+`kimi-k2.6:cloud`, `gemma4:cloud`, `minimax3:cloud`, `deepseek-v4.1-flash:cloud`,
+`glm-5.3-flash:cloud`, `ornith-1.5:35b`). `oac` writes:
 
 - `.oac/ollama/LAUNCH.md` — a table of every `ollama launch` command for this project.
 - `.oac/ollama/<app>--<model>.sh` and `.ps1` — one runnable launcher per app × model,
