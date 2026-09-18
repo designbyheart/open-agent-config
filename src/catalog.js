@@ -13,15 +13,27 @@ export const TARGETS_FILE = path.join(CATALOG_DIR, 'targets.json');
 export const OLLAMA_APPS_FILE = path.join(CATALOG_DIR, 'ollama-apps.json');
 
 /**
+ * Catalog text, always LF. Everything downstream assumes `\n` — `writeText`
+ * puts CRLF back at the boundary for files that use it — so a Windows checkout
+ * with core.autocrlf=true must not leak `\r` into the pipeline. It survived
+ * regexes like /^#\s+.*\n+/ silently: `.` does not match `\r` in JS, so a
+ * skill's H1 stopped being stripped and reappeared as a duplicate heading.
+ */
+const readCatalogText = (p) => readText(p).replace(/\r\n/g, '\n');
+
+/**
  * Parse a leading `---` frontmatter block. Handles flat `key: value` pairs and
  * YAML folded/literal scalars (`key: >` or `key: |` followed by indented lines),
  * which some skill formats use for multi-line descriptions.
  */
 export function parseFrontmatter(text) {
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  // CRLF-tolerant: a Windows checkout with core.autocrlf=true hands us \r\n, and
+  // an \n-only anchor silently matches nothing — which would leak the raw
+  // frontmatter into every generated config and drop each skill's metadata.
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?([\s\S]*)$/);
   if (!m) return { data: {}, body: text };
   const data = {};
-  const lines = m[1].split('\n');
+  const lines = m[1].split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const idx = line.indexOf(':');
@@ -53,7 +65,7 @@ export function loadRules() {
     .filter((f) => f.endsWith('.md'))
     .sort()
     .map((file) => {
-      const { data, body } = parseFrontmatter(readText(path.join(RULES_DIR, file)));
+      const { data, body } = parseFrontmatter(readCatalogText(path.join(RULES_DIR, file)));
       return { id: file.replace(/\.md$/, ''), title: data.title || titleFromBody(body) || file, body: body.trim() };
     });
 }
@@ -64,7 +76,7 @@ export function loadStacks() {
     .filter((f) => f.endsWith('.md'))
     .sort()
     .map((file) => {
-      const { data, body } = parseFrontmatter(readText(path.join(STACKS_DIR, file)));
+      const { data, body } = parseFrontmatter(readCatalogText(path.join(STACKS_DIR, file)));
       return { id: file.replace(/\.md$/, ''), label: data.label || file, body: body.trim() };
     });
 }
@@ -79,13 +91,13 @@ export function loadSkills() {
     .filter((d) => exists(path.join(SKILLS_DIR, d, 'SKILL.md')))
     .map((dir) => {
       const skillDir = path.join(SKILLS_DIR, dir);
-      const { data, body } = parseFrontmatter(readText(path.join(skillDir, 'SKILL.md')));
+      const { data, body } = parseFrontmatter(readCatalogText(path.join(skillDir, 'SKILL.md')));
 
       let json = {};
       const jsonPath = path.join(skillDir, 'skill.json');
       if (exists(jsonPath)) {
         try {
-          json = JSON.parse(readText(jsonPath));
+          json = JSON.parse(readCatalogText(jsonPath));
         } catch {
           /* ignore malformed skill.json; fall back to SKILL.md frontmatter */
         }
@@ -100,8 +112,8 @@ export function loadSkills() {
         .filter((f) => f.toLowerCase().endsWith('.md'))
         .sort()
         .map((rel) => ({
-          path: rel.split(path.sep).join('/'),
-          body: readText(path.join(skillDir, rel)).trim(),
+          path: rel,
+          body: readCatalogText(path.join(skillDir, rel)).trim(),
         }));
       const hasNonDocExtras = relFiles.some((f) => !f.toLowerCase().endsWith('.md'));
 
@@ -121,10 +133,16 @@ export function loadSkills() {
     });
 }
 
-/** Recursively list files under `dir`, returned as paths relative to `base`. */
+/**
+ * Recursively list files under `dir`, as paths relative to `base` and always
+ * `/`-separated. These paths are both printed to users and compared against
+ * catalog manifests, so a Windows backslash would show up in doctor's output
+ * as `.claude/skills/impeccable/scripts\\context.mjs`.
+ */
 function walkFiles(dir, base = dir) {
+  const rel = (p) => path.relative(base, p).split(path.sep).join('/');
   const out = [];
-  for (const f of listFiles(dir)) out.push(path.relative(base, path.join(dir, f)));
+  for (const f of listFiles(dir)) out.push(rel(path.join(dir, f)));
   for (const d of listDirs(dir)) out.push(...walkFiles(path.join(dir, d), base));
   return out;
 }
@@ -135,12 +153,12 @@ export function skillSourceDir(id) {
 
 export function loadTargets() {
   if (!exists(TARGETS_FILE)) return [];
-  return JSON.parse(readText(TARGETS_FILE));
+  return JSON.parse(readCatalogText(TARGETS_FILE));
 }
 
 export function loadOllamaApps() {
   if (!exists(OLLAMA_APPS_FILE)) return [];
-  return JSON.parse(readText(OLLAMA_APPS_FILE));
+  return JSON.parse(readCatalogText(OLLAMA_APPS_FILE));
 }
 
 function titleFromBody(body) {

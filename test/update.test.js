@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { installMode, updateFromGit, gitSpec } from '../src/commands/update.js';
+import { installMode, updateFromGit, gitSpec, globalBinOwner, clearBinConflict } from '../src/commands/update.js';
 
 const run = (cwd, cmd, args) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8' });
@@ -138,4 +138,61 @@ test('a branch with no upstream says so instead of failing obscurely', () => {
   const { out } = capture(() => updateFromGit(clone, { check: true }));
   assert.match(out, /no upstream/);
   assert.match(out, /--set-upstream-to/);
+});
+
+/**
+ * A throwaway npm prefix laid out the way a global install is: the shim in
+ * <prefix>/bin symlinked at a package's entry point under lib/node_modules.
+ */
+function globalPrefix(pkgName, version = '0.1.2', bin = 'oac') {
+  const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'oac-prefix-'));
+  const pkgDir = path.join(prefix, 'lib', 'node_modules', ...pkgName.split('/'));
+  fs.mkdirSync(path.join(pkgDir, 'bin'), { recursive: true });
+  fs.mkdirSync(path.join(prefix, 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify({ name: pkgName, version }));
+  fs.writeFileSync(path.join(pkgDir, 'bin', 'cli.js'), '#!/usr/bin/env node\n');
+  fs.symlinkSync(path.join(pkgDir, 'bin', 'cli.js'), path.join(prefix, 'bin', bin));
+  return prefix;
+}
+
+test('globalBinOwner names the package holding the oac bin', () => {
+  const owner = globalBinOwner('oac', globalPrefix('open-agent-config'));
+  assert.equal(owner?.name, 'open-agent-config');
+  assert.equal(owner?.version, '0.1.2');
+});
+
+test('globalBinOwner reads through a scoped package directory', () => {
+  const owner = globalBinOwner('oac', globalPrefix('@designbyheart/open-agent-config', '0.1.6'));
+  assert.equal(owner?.name, '@designbyheart/open-agent-config');
+});
+
+test('globalBinOwner claims nothing when no package owns the bin', () => {
+  assert.equal(globalBinOwner('oac', globalPrefix('open-agent-config', '0.1.2', 'other-bin')), null);
+  assert.equal(globalBinOwner('oac', fs.mkdtempSync(path.join(os.tmpdir(), 'oac-empty-'))), null);
+  assert.equal(globalBinOwner('oac', null), null);
+});
+
+test('globalBinOwner ignores a shim that is not an npm install', () => {
+  const prefix = fs.mkdtempSync(path.join(os.tmpdir(), 'oac-handrolled-'));
+  fs.mkdirSync(path.join(prefix, 'bin'), { recursive: true });
+  fs.writeFileSync(path.join(prefix, 'bin', 'oac'), '#!/bin/sh\n');
+  assert.equal(globalBinOwner('oac', prefix), null, "a hand-written script is not ours to uninstall");
+});
+
+test('a predecessor owning the bin is reported under --check, not removed', () => {
+  const owner = { name: 'open-agent-config', version: '0.1.2', dir: '/tmp/x' };
+  const { out } = capture(() =>
+    assert.equal(clearBinConflict('@designbyheart/open-agent-config', { check: true, owner }), true)
+  );
+  assert.match(out, /open-agent-config@0\.1\.2/);
+  assert.match(out, /Run "oac update"/);
+});
+
+test('an install of the same package is left to npm rather than uninstalled', () => {
+  const name = '@designbyheart/open-agent-config';
+  const owner = { name, version: '0.1.5', dir: '/tmp/x' };
+  // No npm call and no output: uninstalling here would delete the copy being upgraded.
+  const { out } = capture(() => assert.equal(clearBinConflict(name, { owner }), false));
+  assert.equal(out, '');
+  assert.equal(clearBinConflict(name, { owner: null }), false, 'nothing installed is not a conflict');
 });

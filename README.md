@@ -75,10 +75,34 @@ folders are left untouched to preserve custom content.
 Pin a version by appending `#<ref>`, e.g. `npm install -g github:designbyheart/open-agent-config#v0.1.0`.
 To uninstall: `npm uninstall -g @designbyheart/open-agent-config`.
 
-> **Upgrading from before the rename?** The package moved from `open-agent-config` to
-> `@designbyheart/open-agent-config`, but the binary is still `oac` — npm will refuse to
-> install over the old copy with `EEXIST`. Run `npm uninstall -g open-agent-config` once,
-> then install as above.
+### Already have an older `oac`? Uninstall it first
+
+The package moved from `open-agent-config` to `@designbyheart/open-agent-config`, but the
+command is still `oac`. npm refuses to install a binary another package already owns, so
+installing or updating from a pre-rename copy stops with `EEXIST`:
+
+```
+npm error code EEXIST
+npm error path /usr/local/bin/oac
+npm error File exists: /usr/local/bin/oac
+```
+
+Remove the old package once, then install the new one:
+
+```bash
+npm ls -g --depth=0                 # lists "open-agent-config" if you have the old copy
+npm uninstall -g open-agent-config
+npm install -g github:designbyheart/open-agent-config
+oac --version                       # confirms the new copy answers to `oac`
+```
+
+Nothing in your projects is affected — the generated config files and their
+`agent.config.json` manifests stay exactly where they are, and the new copy picks them
+up. Run `oac sync` afterwards to regenerate against the current catalog.
+
+From **0.1.7** on this is automatic: `oac update` spots the package holding the `oac`
+command, removes it, and installs over it. The steps above are only needed to reach
+0.1.7 in the first place, or when you install by hand rather than through `oac update`.
 
 Released versions also live on **GitHub Packages** as `@designbyheart/open-agent-config`.
 That registry requires authentication even for public packages, so it costs two lines of
@@ -274,6 +298,11 @@ oac update             # apply it
 | A git checkout (`npm link`, or `npm i -g <path>`) | `git pull --ff-only` on the current branch, then `npm install` only if the manifest moved |
 | A global install, package not on npm | `npm i -g github:<owner>/<repo>`, read from `package.json` |
 | A published global package | `npm i -g @designbyheart/open-agent-config@latest` |
+
+Both global routes first check which package owns the `oac` command. If it is an
+older, differently named copy (anything installed before the rename), `oac update`
+uninstalls it so the new version has a free bin to land on. A copy of the *same*
+package is left alone — upgrading that in place is npm's own job.
 
 If you work on the catalog, link it once and your edits are live the moment you save —
 no reinstall, ever. `update` is then only for pulling *other people's* commits:
