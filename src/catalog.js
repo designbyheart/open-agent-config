@@ -18,10 +18,10 @@ export const OLLAMA_APPS_FILE = path.join(CATALOG_DIR, 'ollama-apps.json');
  * which some skill formats use for multi-line descriptions.
  */
 export function parseFrontmatter(text) {
-  const m = text.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
   if (!m) return { data: {}, body: text };
   const data = {};
-  const lines = m[1].split('\n');
+  const lines = m[1].split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const idx = line.indexOf(':');
@@ -100,7 +100,7 @@ export function loadSkills() {
         .filter((f) => f.toLowerCase().endsWith('.md'))
         .sort()
         .map((rel) => ({
-          path: rel.split(path.sep).join('/'),
+          path: rel,
           body: readText(path.join(skillDir, rel)).trim(),
         }));
       const hasNonDocExtras = relFiles.some((f) => !f.toLowerCase().endsWith('.md'));
@@ -124,7 +124,7 @@ export function loadSkills() {
 /** Recursively list files under `dir`, returned as paths relative to `base`. */
 function walkFiles(dir, base = dir) {
   const out = [];
-  for (const f of listFiles(dir)) out.push(path.relative(base, path.join(dir, f)));
+  for (const f of listFiles(dir)) out.push(path.relative(base, path.join(dir, f)).split(path.sep).join('/'));
   for (const d of listDirs(dir)) out.push(...walkFiles(path.join(dir, d), base));
   return out;
 }
