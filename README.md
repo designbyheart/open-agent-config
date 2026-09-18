@@ -76,9 +76,10 @@ Pin a version by appending `#<ref>`, e.g. `npm install -g github:designbyheart/o
 To uninstall: `npm uninstall -g @designbyheart/open-agent-config`.
 
 > **Upgrading from before the rename?** The package moved from `open-agent-config` to
-> `@designbyheart/open-agent-config`, but the binary is still `oac` — npm will refuse to
-> install over the old copy with `EEXIST`. Run `npm uninstall -g open-agent-config` once,
-> then install as above.
+> `@designbyheart/open-agent-config`, but the binary is still `oac`, and npm refuses to
+> install over a bin another package owns — it fails with `EEXIST`. `oac update` now
+> detects that predecessor and removes it for you before installing. Installing by hand
+> instead, run `npm uninstall -g open-agent-config` once, then install as above.
 
 Released versions also live on **GitHub Packages** as `@designbyheart/open-agent-config`.
 That registry requires authentication even for public packages, so it costs two lines of
@@ -274,6 +275,11 @@ oac update             # apply it
 | A git checkout (`npm link`, or `npm i -g <path>`) | `git pull --ff-only` on the current branch, then `npm install` only if the manifest moved |
 | A global install, package not on npm | `npm i -g github:<owner>/<repo>`, read from `package.json` |
 | A published global package | `npm i -g @designbyheart/open-agent-config@latest` |
+
+Both global routes first check which package owns the `oac` command. If it is an
+older, differently named copy (anything installed before the rename), `oac update`
+uninstalls it so the new version has a free bin to land on. A copy of the *same*
+package is left alone — upgrading that in place is npm's own job.
 
 If you work on the catalog, link it once and your edits are live the moment you save —
 no reinstall, ever. `update` is then only for pulling *other people's* commits:
