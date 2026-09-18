@@ -75,11 +75,34 @@ folders are left untouched to preserve custom content.
 Pin a version by appending `#<ref>`, e.g. `npm install -g github:designbyheart/open-agent-config#v0.1.0`.
 To uninstall: `npm uninstall -g @designbyheart/open-agent-config`.
 
-> **Upgrading from before the rename?** The package moved from `open-agent-config` to
-> `@designbyheart/open-agent-config`, but the binary is still `oac`, and npm refuses to
-> install over a bin another package owns — it fails with `EEXIST`. `oac update` now
-> detects that predecessor and removes it for you before installing. Installing by hand
-> instead, run `npm uninstall -g open-agent-config` once, then install as above.
+### Already have an older `oac`? Uninstall it first
+
+The package moved from `open-agent-config` to `@designbyheart/open-agent-config`, but the
+command is still `oac`. npm refuses to install a binary another package already owns, so
+installing or updating from a pre-rename copy stops with `EEXIST`:
+
+```
+npm error code EEXIST
+npm error path /usr/local/bin/oac
+npm error File exists: /usr/local/bin/oac
+```
+
+Remove the old package once, then install the new one:
+
+```bash
+npm ls -g --depth=0                 # lists "open-agent-config" if you have the old copy
+npm uninstall -g open-agent-config
+npm install -g github:designbyheart/open-agent-config
+oac --version                       # confirms the new copy answers to `oac`
+```
+
+Nothing in your projects is affected — the generated config files and their
+`agent.config.json` manifests stay exactly where they are, and the new copy picks them
+up. Run `oac sync` afterwards to regenerate against the current catalog.
+
+From **0.1.7** on this is automatic: `oac update` spots the package holding the `oac`
+command, removes it, and installs over it. The steps above are only needed to reach
+0.1.7 in the first place, or when you install by hand rather than through `oac update`.
 
 Released versions also live on **GitHub Packages** as `@designbyheart/open-agent-config`.
 That registry requires authentication even for public packages, so it costs two lines of
