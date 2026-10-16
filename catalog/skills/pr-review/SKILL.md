@@ -4,7 +4,9 @@ description: >
   Copilot-style pull-request review of a git diff. Use when reviewing changes
   before a push/PR, or when invoked from a pre-push hook. Produces a PR summary,
   file-by-file comments, severity-tagged findings (bug/security/style/perf), and
-  a final machine-readable VERDICT line that a pre-push hook can gate on.
+  a final machine-readable VERDICT line that a pre-push hook can gate on. Checks the PR
+  state first and warns if it is already merged, and can publish the findings back to the
+  PR as inline comments when asked.
 trigger: /pr-review, or run automatically by the pre-push hook (see README → "Pre-push PR review hook").
 ---
 
@@ -15,21 +17,39 @@ is provided **on stdin** and/or named by a range passed as an argument (e.g.
 `/pr-review origin/main..HEAD`). If neither is present, review `git diff` of the working
 tree against `HEAD`.
 
-This skill is read-only. Do not edit files, stage, commit, or push. Only inspect and report.
+This skill does not change the repository. Do not edit files, stage, commit, or push. Only
+inspect and report. Publishing the review to GitHub is the one exception, and only when the
+user asks for it (see "Posting the review to GitHub").
 
 ## Steps
 
-1. **Obtain the diff.**
+1. **Check the PR state before anything else.** Only when a PR number or URL was given.
+
+   ```bash
+   gh pr view <pr> --json state,mergedAt,closedAt,url,headRefOid
+   ```
+
+   - **Merged**: warn the user up front and stop. Say plainly that it is already merged and
+     ask whether they still want the review. Do not review first and mention it afterwards.
+   - **Closed, not merged**: say so, then ask whether to continue and whether anything should
+     still be posted.
+   - **Open**: state it in one clause and carry on.
+
+   There is no `merged` field on `gh pr view`; use `mergedAt`. Treat a PR description that
+   the head commit contradicts as stale and say so: a listed blocker the head already fixed,
+   or a CI run that was cancelled rather than failed.
+
+2. **Obtain the diff.**
    - If a PR number or URL was given, use `gh pr view` / `gh pr diff` for that PR.
    - Else if a diff was piped on stdin, review that.
    - Else if an argument range was given, run `git diff <range>` (and `git log --oneline <range>` for commit context).
    - Else run `git diff HEAD`.
    - If the diff is empty, output exactly `VERDICT: PASS` and stop.
 
-2. **Understand the change** before judging it. Read enough surrounding context (open the
+3. **Understand the change** before judging it. Read enough surrounding context (open the
    touched files if needed) to avoid false positives. A finding you can't stand behind is noise.
 
-3. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
+4. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
    file and line, classified by severity:
    - `high`: correctness bugs, security vulnerabilities, data loss, crashes, broken auth,
      secrets committed, injection, race conditions with real impact.
@@ -91,3 +111,29 @@ End your entire response with the PR url, then a single verdict line with nothin
 
 The pre-push hook greps for `VERDICT: BLOCK` to decide whether to reject the push, so the
 line must appear verbatim and exactly once.
+
+## Posting the review to GitHub
+
+Only when the user asks for it. The report above is the default; publishing is a separate,
+explicit request.
+
+- **One review, one-line body.** The body is a single line, e.g. "Looks good, with a few
+  suggestions for improvements." Nothing else: no summary, no counts, no restating the
+  findings. The inline comments already say it at the right place.
+- **Findings go inline**, anchored to their code line, in the same issue-then-suggestion
+  shape as the report.
+- **Post `medium` and above.** Drop `low` findings.
+- **`event: APPROVE` when the verdict is PASS.** If a `high` finding survived, do not
+  approve: submit with `event: COMMENT` and say why in the one-line body.
+- If the number of findings the user names does not match what the review produced, ask
+  which set before posting.
+
+```bash
+gh pr view <pr> --json headRefOid -q .headRefOid          # commit_id
+gh api repos/<org>/<repo>/pulls/<pr>/reviews --input review.json
+```
+
+`review.json` holds `commit_id`, `event`, the one-line `body`, and a `comments` array of
+`{path, line, side: "RIGHT", body}`. Every `line` must fall inside a diff hunk or the whole
+call is rejected, so confirm each one against the diff first. A review can be submitted on a
+closed PR, but confirm with the user before doing it.
