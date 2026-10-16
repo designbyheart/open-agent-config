@@ -1,0 +1,11 @@
+{
+  "name": "open-agent-config",
+  "description": "The open-agent-config skills catalog: code review, PR workflow, architecture, frontend design and more.",
+  "author": {
+    "name": "Pedja Jevtic",
+    "url": "https://github.com/designbyheart"
+  },
+  "homepage": "https://github.com/designbyheart/open-agent-config",
+  "repository": "https://github.com/designbyheart/open-agent-config",
+  "license": "MIT"
+}
