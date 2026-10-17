@@ -326,6 +326,19 @@ rule files are generated or modified.
 oac init --yes --skills-only --skills=commit-pr,review-pr --dir=~/work/existing-repo
 ```
 
+### Installing the skills as a Claude Code plugin
+
+The repo is also a Claude Code plugin marketplace. It publishes the whole skills catalog
+as one plugin, without generating any rule files:
+
+```
+/plugin install open-agent-config --marketplace designbyheart/open-agent-config
+```
+
+On older Claude Code versions, add the marketplace first with
+`/plugin marketplace add designbyheart/open-agent-config`, then run
+`/plugin install open-agent-config@open-agent-config`.
+
 ---
 
 ## Targets and the files they get

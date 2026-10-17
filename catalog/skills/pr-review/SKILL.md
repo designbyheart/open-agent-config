@@ -29,14 +29,21 @@ user asks for it (see "Posting the review to GitHub").
    gh pr view <pr> --json state,mergedAt,closedAt,url,headRefOid,reviewDecision,latestReviews
    ```
 
-   - **Approved**: if `reviewDecision` is `APPROVED`, or any entry in `latestReviews` has
-     state `APPROVED` (by me or anyone else), stop. Say who approved it and when, and do not
-     review further unless I ask again.
-   - **Merged**: warn the user up front and stop. Say plainly that it is already merged and
-     ask whether they still want the review. Do not review first and mention it afterwards.
+   - **Skip** when any of these holds, checked before reading the diff:
+     - **Merged**: `mergedAt` is set.
+     - **Approved**: `reviewDecision` is `APPROVED`, or any entry in `latestReviews` has state
+       `APPROVED` (by me or anyone else).
+     - **Changes requested**: `reviewDecision` is `CHANGES_REQUESTED`, or any entry in
+       `latestReviews` has state `CHANGES_REQUESTED`.
+
+     Report the skip in one line (the PR, which condition, who and when) and stop. Do not ask
+     whether to review it anyway.
    - **Closed, not merged**: say so, then ask whether to continue and whether anything should
      still be posted.
-   - **Open and not approved**: state it in one clause and carry on.
+   - **Open, none of the above**: state it in one clause and carry on.
+   - **Re-review on request**: review a PR skipped by these rules only when I explicitly ask to
+     re-review it (for example "re-review #123" or "re-review the skipped PRs"). Then run the
+     full review and name the state it was skipped for in the summary.
 
    There is no `merged` field on `gh pr view`; use `mergedAt`. Treat a PR description that
    the head commit contradicts as stale and say so: a listed blocker the head already fixed,
