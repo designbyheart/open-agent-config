@@ -26,14 +26,17 @@ user asks for it (see "Posting the review to GitHub").
 1. **Check the PR state before anything else.** Only when a PR number or URL was given.
 
    ```bash
-   gh pr view <pr> --json state,mergedAt,closedAt,url,headRefOid
+   gh pr view <pr> --json state,mergedAt,closedAt,url,headRefOid,reviewDecision,latestReviews
    ```
 
+   - **Approved**: if `reviewDecision` is `APPROVED`, or any entry in `latestReviews` has
+     state `APPROVED` (by me or anyone else), stop. Say who approved it and when, and do not
+     review further unless I ask again.
    - **Merged**: warn the user up front and stop. Say plainly that it is already merged and
      ask whether they still want the review. Do not review first and mention it afterwards.
    - **Closed, not merged**: say so, then ask whether to continue and whether anything should
      still be posted.
-   - **Open**: state it in one clause and carry on.
+   - **Open and not approved**: state it in one clause and carry on.
 
    There is no `merged` field on `gh pr view`; use `mergedAt`. Treat a PR description that
    the head commit contradicts as stale and say so: a listed blocker the head already fixed,
@@ -49,7 +52,26 @@ user asks for it (see "Posting the review to GitHub").
 3. **Understand the change** before judging it. Read enough surrounding context (open the
    touched files if needed) to avoid false positives. A finding you can't stand behind is noise.
 
-4. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
+4. **Check the change fits the codebase.** See how the project already solves the same
+   problem: grep for similar calls and read sibling files for existing helpers, patterns,
+   libraries and conventions. Flag a change that adds a second way of doing something the
+   codebase already does, or brings in an approach with no precedent when an established
+   one would work. `medium` when it duplicates or conflicts with an established approach,
+   `low` when it only drifts in style.
+
+5. **Check every added package.** For each dependency added to a manifest (`package.json`,
+   `Podfile`, `build.gradle`, `Gemfile`, `go.mod`, `requirements.txt`, ...), confirm it is
+   needed: the diff actually uses it, the codebase has no package or helper that already
+   does the job, a few lines of code would not do instead, and it is maintained with a
+   compatible license. Flag an unnecessary or duplicate package as `medium`.
+
+6. **Walk the user flow as a QA tester.** Trace what a user does through the changed code:
+   the happy path first, then the edge cases (empty data, slow or failed network, signed
+   out, first launch, retry, back navigation, other platforms and locales). Check that
+   flows touched indirectly through shared code, callers or state still work. Anchor each
+   break to the diff line that causes it, with severity set by the impact on the user.
+
+7. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
    file and line, classified by severity:
    - `high`: correctness bugs, security vulnerabilities, data loss, crashes, broken auth,
      secrets committed, injection, race conditions with real impact.
