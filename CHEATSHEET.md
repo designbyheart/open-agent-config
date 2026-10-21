@@ -25,7 +25,7 @@ oac --version            Version
 
 ```
 --dir=<path>          Target directory (default: current directory)
---targets=a,b         claude, codex, devin, cursor, copilot, windsurf, ollama
+--targets=a,b         claude, codex, devin, hermes, pi, cursor, copilot, windsurf, ollama
 --stacks=a,b          Stack fragments (see: oac list stacks)
 --skills=a,b          Skills to install
 --ollama-models=a,b   Model tags for the ollama target (e.g. kimi-k2.6:cloud)
@@ -56,10 +56,12 @@ oac sync --dir=~/work/other-project
 
 ```
 agent.config.json            manifest (selected targets/skills/stacks/ollama, source hash)
-AGENTS.md                         universal (Codex, Devin, AGENTS.md-aware tools)
+AGENTS.md                         universal (Codex, Devin, Pi, AGENTS.md-aware tools)
+HERMES.md                         Hermes Agent (read ahead of AGENTS.md)
 CLAUDE.md                         Claude Code
 .claude/skills/<name>/            installed skills (Claude)
 .agents/skills/<name>/             installed skills (Codex)
+.pi/skills/<name>/                installed skills (Pi)
 .cursor/rules/oac.mdc             Cursor
 .github/copilot-instructions.md   Copilot / VS Code
 .windsurfrules                    Windsurf

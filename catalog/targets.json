@@ -21,6 +21,20 @@
     "detect": ["AGENTS.md", ".devin"]
   },
   {
+    "id": "hermes",
+    "label": "Hermes Agent",
+    "writes": ["HERMES.md"],
+    "supportsSkills": false,
+    "detect": ["HERMES.md", ".hermes.md", ".hermes"]
+  },
+  {
+    "id": "pi",
+    "label": "Pi",
+    "writes": ["AGENTS.md", ".pi/skills/"],
+    "supportsSkills": true,
+    "detect": [".pi", "AGENTS.md"]
+  },
+  {
     "id": "cursor",
     "label": "Cursor",
     "writes": [".cursor/rules/oac.mdc"],

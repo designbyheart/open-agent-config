@@ -54,8 +54,11 @@ test('native index falls back to file locations when descriptions cannot fit', (
 });
 
 test('default native output leaves room for project-specific instructions', () => {
+  // A reserve, not the real limit: consumers cap at AGENT_DOC_BUDGET_BYTES (32 KiB), and the
+  // rest is held for hand-written project content. It counts the skills index too, so every
+  // skill added to the catalog spends the same headroom the rule fragments do.
   const { artifacts } = buildArtifacts(manifest);
-  assert.ok(artifacts[0].bytes < 16 * 1024, `${artifacts[0].bytes} bytes`);
+  assert.ok(artifacts[0].bytes < 17 * 1024, `${artifacts[0].bytes} bytes`);
 });
 
 test('rendering reserves handwritten content per target and stays idempotent', (t) => {

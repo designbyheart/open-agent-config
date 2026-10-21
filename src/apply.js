@@ -48,7 +48,7 @@ export function applyManifest(projectDir, manifest, { onWarn = () => {} } = {}) 
       // carried, and CRLF expansion on Windows all count against the
       // consumer's budget.
       if (a.budgeted) {
-        const w = budgetWarning(a.path, docBytes(onDisk));
+        const w = budgetWarning(a.path, docBytes(onDisk), a.docBudget);
         if (w) onWarn(w);
       }
     }

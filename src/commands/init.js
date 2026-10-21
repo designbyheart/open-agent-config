@@ -9,7 +9,14 @@ import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { addContext } from '../telemetry.js';
 import { isKnownTarget } from '../targets/registry.js';
 
-const DEFAULT_OLLAMA_MODELS = ['kimi-k2.6:cloud', 'gemma4:cloud', 'minimax3:cloud'];
+const DEFAULT_OLLAMA_MODELS = [
+  'kimi-k2.6:cloud',
+  'gemma4:cloud',
+  'minimax3:cloud',
+  'deepseek-v4.1-flash:cloud',
+  'glm-5.3-flash:cloud',
+  'ornith-1.5:35b',
+];
 import { applyManifest } from '../apply.js';
 
 function cliVersion() {

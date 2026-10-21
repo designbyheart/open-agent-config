@@ -51,7 +51,7 @@ export async function cmdDoctor(ctx) {
       // Size the file as it sits on disk — hand-written content above the
       // managed block counts against the consumer's budget just the same.
       if (a.budgeted) {
-        const w = budgetWarning(a.path, docBytes(text));
+        const w = budgetWarning(a.path, docBytes(text), a.docBudget);
         if (w) warnings.push(w);
       }
     }

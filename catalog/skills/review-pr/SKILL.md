@@ -4,7 +4,8 @@ description: >
   Review a GitHub pull request locally, classify findings by severity,
   present them to the user, and upload selected review comments back to
   the PR using gh CLI. Use this when asked to review a PR, inspect a PR
-  locally before commenting, or leave structured review feedback on GitHub.
+  locally before commenting, or leave structured review feedback on GitHub. Checks the PR
+  state first and warns if it is already merged.
 ---
 
 # Review PR
@@ -30,15 +31,29 @@ Only report real findings. If there are no findings, say so explicitly.
 
 ## Local review workflow
 
-1. **Inspect the current repo state first**
+1. **Check the PR state before anything else**
+   ```bash
+   gh pr view <pr> --json state,mergedAt,closedAt,url,headRefOid
+   ```
+   - **Merged**: warn the user up front and stop. Say plainly that it is already merged and
+     ask whether they still want the review. Do not review first and mention it afterwards.
+   - **Closed, not merged**: say so, then ask whether to continue and whether anything should
+     still be published.
+   - **Open**: state it in one clause and carry on.
+
+   There is no `merged` field on `gh pr view`; use `mergedAt`. Treat a PR description that
+   the head commit contradicts as stale and say so: a listed blocker the head already fixed,
+   or a CI run that was cancelled rather than failed.
+
+2. **Inspect the current repo state**
    - Run `git status --short`.
    - If the worktree is dirty, do not disturb it. Prefer a temporary review branch or worktree.
 
-2. **Resolve PR metadata**
+3. **Resolve PR metadata**
    - Use `gh pr view <pr> --json number,title,body,baseRefName,headRefName,headRepositoryOwner,headRepository,author,url,files,commits`.
    - Capture PR number, base branch, head branch, repo owner/name, and changed files.
 
-3. **Get the PR locally without disturbing user work**
+4. **Get the PR locally without disturbing user work**
    - If the current worktree is clean and the user is already on the PR branch, reuse it.
    - Otherwise prefer a temporary local review branch:
    ```bash
@@ -50,7 +65,7 @@ Only report real findings. If there are no findings, say so explicitly.
    ```
    - Never discard existing local changes.
 
-4. **Review the diff**
+5. **Review the diff**
    - Compute merge base against the PR base branch.
    - Start with:
    ```bash
@@ -64,7 +79,7 @@ Only report real findings. If there are no findings, say so explicitly.
    ```
    - Focus on bugs, regressions, risky API/threading changes, security issues, and missing tests.
 
-5. **Build findings**
+6. **Build findings**
    For each finding record:
    - severity
    - file/path
@@ -73,7 +88,7 @@ Only report real findings. If there are no findings, say so explicitly.
    - explanation
    - suggested fix or question
 
-6. **Present findings to the user before publishing**
+7. **Present findings to the user before publishing**
    Head the report with the PR number, title and url, so it is identifiable without
    scrolling back. Group findings by severity, highest first. Each one is:
    - `blocker` / `high` / `medium` / `low`
@@ -85,14 +100,14 @@ Only report real findings. If there are no findings, say so explicitly.
    verify-manually ideas, no notes on what the change got right. Repeat the PR url on
    the last line so it can be grabbed for pasting comments.
 
-7. **Get explicit user selection**
+8. **Get explicit user selection**
    Ask which findings to publish:
    - all findings
    - selected finding numbers
    - summary only
    - do not publish
 
-8. **Publish selected comments with gh**
+9. **Publish selected comments with gh**
    - Prefer inline comments when you have a confident file + diff location.
    - Prefer a review summary for cross-cutting findings or uncertain anchors.
    - Summary review:
@@ -111,7 +126,7 @@ Only report real findings. If there are no findings, say so explicitly.
    ```
    - Only upload findings the user selected.
 
-9. **Report back**
+10. **Report back**
    Tell the user:
    - what was reviewed
    - how many findings were found per severity
