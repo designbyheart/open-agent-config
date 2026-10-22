@@ -5,8 +5,9 @@ description: >
   before a push/PR, or when invoked from a pre-push hook. Produces a PR summary,
   file-by-file comments, severity-tagged findings (bug/security/style/perf), and
   a final machine-readable VERDICT line that a pre-push hook can gate on. Checks the PR
-  state first and warns if it is already merged, and can publish the findings back to the
-  PR as inline comments when asked.
+  state first (skips merged, draft and already-decided PRs), can work through a whole
+  review queue into a local tracker, and can publish the findings back to the PR as inline
+  comments when asked.
 trigger: /pr-review, or run automatically by the pre-push hook (see README → "Pre-push PR review hook").
 ---
 
@@ -26,11 +27,13 @@ user asks for it (see "Posting the review to GitHub").
 1. **Check the PR state before anything else.** Only when a PR number or URL was given.
 
    ```bash
-   gh pr view <pr> --json state,mergedAt,closedAt,url,headRefOid,reviewDecision,latestReviews
+   gh pr view <pr> --json state,mergedAt,closedAt,isDraft,url,headRefOid,reviewDecision,latestReviews
    ```
 
    - **Skip** when any of these holds, checked before reading the diff:
      - **Merged**: `mergedAt` is set.
+     - **Draft**: `isDraft` is true. No review, no approval, no comments; list it as skipped
+       (draft).
      - **Approved**: `reviewDecision` is `APPROVED`, or any entry in `latestReviews` has state
        `APPROVED` (by me or anyone else).
      - **Changes requested**: `reviewDecision` is `CHANGES_REQUESTED`, or any entry in
@@ -48,6 +51,11 @@ user asks for it (see "Posting the review to GitHub").
    There is no `merged` field on `gh pr view`; use `mergedAt`. Treat a PR description that
    the head commit contradicts as stale and say so: a listed blocker the head already fixed,
    or a CI run that was cancelled rather than failed.
+
+   Also note, in one clause each when they apply: an existing approval that predates the
+   current head (nobody has reviewed the newest commits), a merge-order dependency named in
+   the description, and a conflict with the base branch (`git merge-tree` of the head
+   against the base).
 
 2. **Obtain the diff.**
    - If a PR number or URL was given, use `gh pr view` / `gh pr diff` for that PR.
@@ -78,7 +86,14 @@ user asks for it (see "Posting the review to GitHub").
    flows touched indirectly through shared code, callers or state still work. Anchor each
    break to the diff line that causes it, with severity set by the impact on the user.
 
-7. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
+7. **Compare against the ticket** when the PR names one. Report it in three short bullet
+   groups only, writing "none" for an empty group:
+   - **Missing from ticket:** requirements the code does not address.
+   - **Extra work:** changes outside the ticket's scope.
+   - **Off-pattern:** approaches that don't follow the established architecture, rules or
+     conventions.
+
+8. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
    file and line, classified by severity:
    - `high`: correctness bugs, security vulnerabilities, data loss, crashes, broken auth,
      secrets committed, injection, race conditions with real impact.
@@ -106,7 +121,10 @@ Rules:
   right. If it is not an issue with this diff, it does not go in the report.
 - **Repeat the PR url at the end**, on the line directly above the verdict, so it can be
   grabbed without scrolling back up. Nothing else goes between the findings and the verdict.
-- Plain everyday English, in the user's voice. No em dashes.
+- Plain everyday English, in the user's voice. No em dashes, and no en dashes or spaced
+  hyphens in their place: rewrite the sentence.
+- **No people's names or @mentions** in anything posted to the PR. Refer to roles instead
+  ("the ticket owner", "the API owner").
 
 Print Markdown in this exact shape:
 
@@ -115,6 +133,9 @@ Print Markdown in this exact shape:
 <PR url>
 
 **Summary:** <1-2 sentences: what the change does and overall risk.>
+
+**Ticket:** Missing: <...|none>. Extra: <...|none>. Off-pattern: <...|none>.
+(Omit the Ticket line when the PR names no ticket.)
 
 ### Findings
 
@@ -151,18 +172,64 @@ explicit request.
   findings. The inline comments already say it at the right place.
 - **Findings go inline**, anchored to their code line, in the same issue-then-suggestion
   shape as the report.
-- **Post `medium` and above.** Drop `low` findings.
+- **Post `medium` and above by default.** Drop `low` findings unless the user asks for them
+  (for example "post all medium and lows"); then post every finding in the report.
 - **`event: APPROVE` when the verdict is PASS.** If a `high` finding survived, do not
   approve: submit with `event: COMMENT` and say why in the one-line body.
 - If the number of findings the user names does not match what the review produced, ask
   which set before posting.
 
+- **Re-check the PR right before posting.** Approval can come long after the review, and the
+  PR can move in between. Note the `headRefOid` you reviewed in step 1, then immediately
+  before the post call run:
+
+  ```bash
+  gh pr view <pr> --json state,mergedAt,headRefOid,reviewDecision
+  ```
+
+  - **Merged or closed**: do not post. Say so in one line and stop.
+  - **`headRefOid` differs from the reviewed commit**: do not post. Say the head moved
+    (old sha → new sha, commit count, file count from `gh pr view --json files`), review the
+    new commits, and post only after the user confirms on the new head.
+  - **Already `APPROVED` or `CHANGES_REQUESTED` by someone else**: say so and ask first.
+  - Otherwise post, with `commit_id` set to the reviewed sha. Never use `gh pr review
+    --approve`: it approves whatever the head is at that moment.
+
 ```bash
-gh pr view <pr> --json headRefOid -q .headRefOid          # commit_id
-gh api repos/<org>/<repo>/pulls/<pr>/reviews --input review.json
+gh api repos/<org>/<repo>/pulls/<pr>/reviews --input review.json   # commit_id = reviewed sha
 ```
 
 `review.json` holds `commit_id`, `event`, the one-line `body`, and a `comments` array of
 `{path, line, side: "RIGHT", body}`. Every `line` must fall inside a diff hunk or the whole
-call is rejected, so confirm each one against the diff first. A review can be submitted on a
+call is rejected, so confirm each one against the diff first. If the call still fails with
+`422 Line could not be resolved`, move that comment to the nearest added line of the same
+code in the hunk (count new-file lines from the `@@ -a,b +c,d @@` header, skipping `-` lines),
+update the saved report to the new line, and post again. A review can be submitted on a
 closed PR, but confirm with the user before doing it.
+
+A submitted review cannot be deleted, only dismissed (needs maintainer rights), so never
+post on a PR the rules above say to skip.
+
+If `gh` fails with `connection reset by peer` against a local proxy address, run it with
+`HTTPS_PROXY`/`HTTP_PROXY` (and lowercase variants) unset.
+
+## Review queue (several PRs)
+
+When asked to review every PR waiting on me (for example a
+`user-review-requested:@me` search):
+
+1. **List** with `gh pr list --search "is:pr is:open user-review-requested:@me" --json
+   number,title,author,isDraft,headRefOid,additions,deletions,changedFiles,reviewDecision`.
+2. **Filter**: keep open, non-draft PRs that I have not reviewed. `latestReviews` misses
+   comment-only reviews, so check `gh api repos/<org>/<repo>/pulls/<n>/reviews` and
+   `.../comments` for my login. Here, approvals or change requests by other people do not
+   skip a PR. List the skipped ones (already reviewed by me, drafts) in one line each.
+3. **Review one by one**, one read-only subagent per PR in parallel (start more as slots
+   free). Each one runs the full steps above, posts nothing, and writes its result to
+   `<docs>/pr-reviews-<YYYY-MM-DD>/<number>.md`: header (author, size, CI, reviewed sha),
+   one-line summary, existing reviews, suggested action (APPROVE / COMMENT / SKIP), the
+   one-line body, and a findings table `Sev | File:line | Issue | Suggestion`.
+   `<docs>` is the user's docs folder from their global instructions, never the repo.
+4. **Tracker**: `<docs>/pr-reviews-<YYYY-MM-DD>.md`, grouped in batches of 10, one table row
+   per PR with a `[ ]` checkbox, PR link, title, suggested action and key point.
+5. **Post only when asked**, per "Posting the review to GitHub", then tick the posted rows.
