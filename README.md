@@ -282,6 +282,43 @@ Opt out with `oac init --no-graph-hook` (or `oac sync --no-graph-hook`); it is s
 `graphHook: false` in the manifest. Skip a single git command with `GRAPHIFY_SKIP_HOOK=1`.
 `oac doctor` reports whether the hook is installed and whether graphify is on `PATH`.
 
+### Token savers (`oac trim`)
+
+oac can install and manage one or two tools that cut what your agent reads. They are
+opt-in: `oac init` asks "Enable a token saver?" after the skills, with nothing selected.
+An existing project is asked once, on its next interactive `oac sync`.
+
+| Tool | Trims | How |
+| --- | --- | --- |
+| [rtk](https://github.com/rtk-ai/rtk) | Shell command output (git, tests, builds, ls) | A hook rewrites known commands to rtk, which drops noise and keeps errors |
+| [llmtrim](https://github.com/fkiene/llmtrim) | Whole requests: history, tool schemas, tool outputs | A local HTTPS interceptor. It installs a local CA, sets `HTTPS_PROXY` in your shell profile and runs a login daemon |
+
+They work on different layers, so both together are fine. oac installs a missing tool
+(rtk: Homebrew when present, else its install script, winget on Windows; llmtrim: npm),
+then configures it with the tool's own installer for the project's agents:
+`rtk init -g --hook-only` per agent (Claude Code, Codex, Cursor, Copilot, Pi, Hermes)
+and `llmtrim setup`. oac writes rtk's short usage rules into its own generated configs,
+so rtk never patches a file oac manages. What was done is recorded under `trim` in the
+manifest, so it can be undone. Installs never run in CI.
+
+```bash
+oac init --yes --trim=rtk,llmtrim   # or --trim=off; also works on sync
+oac sync --dry-run                  # print the install/configure commands, run nothing
+oac trim                            # what is on, installed, configured, and saved
+oac trim help rtk                   # what it does, when it helps, its commands
+oac trim on llmtrim
+oac trim off rtk                    # rtk's own uninstall + oac's rules for it; no name = all
+```
+
+`oac doctor` reports each enabled tool's health and warns when two active tools work on
+the same layer, including ones it can spot in `~/.claude/settings.json` (for example
+token-savior's Bash rewriter next to rtk).
+
+Both tools configure your agents globally, not per project, so `oac trim off` in one
+project removes them for every project. Savings vary: the tools' own counters measure
+what they cut, not your bill, and an [independent benchmark](https://quesma.com/blog/does-rtk-make-ai-coding-cheaper/)
+found rtk barely changed the billed cost on Claude. Compare your costs with it on and off.
+
 ### Anonymous usage counting
 
 oac counts command runs so the author can tell whether anyone else uses it. It is
@@ -298,7 +335,7 @@ oac telemetry off      # stop, permanently
 | --- | --- |
 | Command name, outcome, duration | Project names or descriptions |
 | oac / Node / OS / arch versions | Any filesystem path |
-| Catalog ids selected (`claude`, `nextjs`, `code-review`) | File contents, git remotes, repo URLs |
+| Catalog ids selected (`claude`, `nextjs`, `code-review`, `rtk`) | File contents, git remotes, repo URLs |
 | A random install id, generated locally | Usernames, hostnames, email |
 | Whether the run was in CI | Error *messages* — only the error's class or code |
 
@@ -587,6 +624,7 @@ claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
 | `oac remove-skill <name>` | Remove a skill and its installed folder |
 | `oac import-skill <src>` | Import a skill from a path or git URL into the catalog |
 | `oac doctor` | Verify config: missing files, broken managed blocks, stale catalog |
+| `oac trim [status\|help\|on\|off] [tool]` | Token savers (rtk, llmtrim): status, explain, enable, undo |
 
 | Flag | Meaning |
 | --- | --- |
@@ -595,6 +633,8 @@ claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
 | `--stacks=a,b` | Stack rule fragments (see `oac list stacks`) |
 | `--skills=a,b` | Skills to install |
 | `--skills-only` | Install skills + manifest only; never write or modify rule files |
+| `--trim=rtk,llmtrim` | Enable token savers without the prompt; `--trim=off` declines |
+| `--dry-run` | Print token-saver install/configure commands instead of running them |
 | `--yes`, `-y` | Non-interactive; use defaults and flag values |
 
 Full reference: [`CHEATSHEET.md`](CHEATSHEET.md).

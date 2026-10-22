@@ -16,6 +16,7 @@ oac doctor               Verify project config: missing files, broken blocks, st
 oac keys                 Print this project's aliases, reference codes, skills and commands
 oac update [--check]     Update oac itself: git pull when linked to a checkout, else npm -g
 oac telemetry [on|off]   Anonymous usage counting: status, or turn it on/off
+oac trim [help|on|off]   Token savers (rtk, llmtrim): status, explain, enable, undo
 npm run hooks:install    Install the pre-push patch-version guard (this repo only)
 oac --help               Usage
 oac --version            Version

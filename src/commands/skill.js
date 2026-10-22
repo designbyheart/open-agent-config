@@ -31,6 +31,7 @@ export async function cmdAddSkill(ctx) {
     skills: manifest.skills,
     ollama: manifest.ollama,
     patterns: readProjectPatterns(projectDir)?.body,
+    trim: manifest.trim,
   });
   writeManifest(projectDir, manifest);
   applyManifest(projectDir, manifest);
@@ -54,6 +55,7 @@ export async function cmdRemoveSkill(ctx) {
     skills: manifest.skills,
     ollama: manifest.ollama,
     patterns: readProjectPatterns(projectDir)?.body,
+    trim: manifest.trim,
   });
   writeManifest(projectDir, manifest);
 

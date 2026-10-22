@@ -40,6 +40,8 @@ test('init writes the manifest and one config per selected target', () => {
     assert.ok(fs.existsSync(path.join(dir, f)), `expected ${f}`);
   }
   assert.ok(fs.existsSync(path.join(dir, '.claude', 'skills', 'code-review', 'SKILL.md')));
+  // Token savers stay off unless asked: no installer may run from these tests.
+  assert.equal('trim' in JSON.parse(fs.readFileSync(path.join(dir, MANIFEST_NAME), 'utf8')), false);
 });
 
 test('sync is idempotent — running it twice changes nothing', () => {

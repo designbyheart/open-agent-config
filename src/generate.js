@@ -1,4 +1,4 @@
-import { loadRules, loadStacks, loadSkills } from './catalog.js';
+import { loadRules, loadStacks, loadSkills, loadTrimTools, trimGuidance } from './catalog.js';
 import { readProjectPatterns } from './patterns.js';
 
 /**
@@ -86,6 +86,14 @@ export function assemble(manifest, { projectDir } = {}) {
   const patterns = readProjectPatterns(projectDir);
   if (patterns) {
     sections.push({ title: patterns.title, md: `## ${patterns.title}\n\n${stripH1(patterns.body)}` });
+  }
+
+  // Usage rules for an enabled token saver (rtk). oac writes these itself: the
+  // tool is configured hook-only so it never patches a file oac manages.
+  const trimIds = (manifest.trim && manifest.trim.tools) || [];
+  for (const t of loadTrimTools()) {
+    const md = trimIds.includes(t.id) && trimGuidance(t);
+    if (md) sections.push({ title: t.guidanceTitle, md: `## ${t.guidanceTitle}\n\n${md}` });
   }
 
   // Selected stack fragments (already authored as H2).

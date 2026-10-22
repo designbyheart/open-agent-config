@@ -7,6 +7,7 @@ import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { buildArtifacts, skillDirsFor, budgetWarning } from '../targets/registry.js';
 import { hasBlock } from '../managed.js';
 import { graphHookStatus, GRAPH_SKILL } from '../graphHook.js';
+import { enabledTrim, getTrimTool, toolVersion, verifyTool, overlapWarnings } from '../trim.js';
 
 export async function cmdDoctor(ctx) {
   const projectDir = resolveProjectDir(ctx.flags);
@@ -25,6 +26,7 @@ export async function cmdDoctor(ctx) {
     skills: manifest.skills,
     ollama: manifest.ollama,
     patterns: readProjectPatterns(projectDir)?.body,
+    trim: manifest.trim,
   });
   if (manifest.sourceHash && manifest.sourceHash !== current) {
     problems.push(
@@ -94,17 +96,32 @@ export async function cmdDoctor(ctx) {
     else notes.push(`graphify refresh hook not installed${manifest.graphHook === false ? ' (opted out)' : ' (run "oac sync")'}; ${cli}.`);
   }
 
+  // 5. Token savers: enabled ones installed and healthy, and never two on one layer.
+  //    Advisory only — they live outside the project, so they never fail doctor.
+  const trimWarnings = overlapWarnings(manifest);
+  const trimIds = enabledTrim(manifest);
+  for (const id of trimIds) {
+    const tool = getTrimTool(id);
+    if (!tool) continue;
+    const version = toolVersion(tool);
+    const targets = manifest.trim.applied?.[id]?.targets || [];
+    if (!version) trimWarnings.push(`${id} is enabled but not installed (run "oac sync").`);
+    else if (!verifyTool(tool)) trimWarnings.push(`${id} ${version} check failed; run "${tool.verify}".`);
+    else ok.push(`Token saver ${id} ${version} healthy${targets.length ? ` (${targets.join(', ')})` : ''}.`);
+  }
+  if (!trimIds.length) notes.push('Token saver off (see "oac trim help").');
+
   console.log(`\n  Doctor — ${manifest.project.name}`);
   for (const o of ok) console.log(`    ✔ ${o}`);
   for (const n of notes) console.log(`    · ${n}`);
   for (const pr of problems) console.log(`    ✖ ${pr}`);
-  for (const w of warnings) console.log(`    ⚠ ${w}`);
+  for (const w of [...warnings, ...trimWarnings]) console.log(`    ⚠ ${w}`);
 
   if (problems.length) {
     console.log(`\n  ${problems.length} problem(s). Run "oac sync" to fix generated files.`);
     process.exitCode = 1;
   } else if (!warnings.length) {
-    console.log(`\n  All good.\n`);
+    console.log(trimWarnings.length ? `\n  Config good; ${trimWarnings.length} token-saver warning(s) above.\n` : `\n  All good.\n`);
     return;
   }
   // Oversize is real but "sync" cannot shrink a rule set, so it gets its own

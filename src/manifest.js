@@ -51,6 +51,7 @@ export function makeManifest({
   skillsOnly = false,
   patterns = true,
   graphHook = true,
+  trim,
   sourceHash,
   cliVersion,
 }) {
@@ -71,6 +72,9 @@ export function makeManifest({
     // When false, oac never installs the graphify refresh hook, even with the
     // graphify skill selected.
     graphHook,
+    // Opt-in token savers: false when declined, { tools, applied } when chosen,
+    // absent while undecided (an interactive `oac sync` then asks once).
+    ...(trim === undefined ? {} : { trim }),
     targets,
     skills,
     stacks,

@@ -1,0 +1,31 @@
+{
+  "id": "llmtrim",
+  "name": "llmtrim",
+  "order": 2,
+  "kind": "request-payload",
+  "bin": "llmtrim",
+  "homepage": "https://github.com/fkiene/llmtrim",
+  "hint": "compresses whole requests via a local HTTPS interceptor; installs a local CA, sets HTTPS_PROXY in shell profiles and runs a login daemon",
+  "trims": "Whole request payloads: conversation history, tool schemas and tool outputs, plus a terse-output instruction. A local HTTPS interceptor compresses every request before it leaves the machine.",
+  "helps": "Long sessions with large histories and many tools, on any agent that honours HTTPS_PROXY. Its own A/B benchmark reports large cuts with quality checks; it is self-run, so measure your own bill.",
+  "caveats": "System-level: a private CA in ~/.llmtrim, HTTPS_PROXY and CA variables in your shell profile (HKCU on Windows), a login daemon, and Claude Code hooks/subagents it adds itself. All LLM traffic is decrypted locally. Not supported: Copilot (certificate pinning), Cursor Agent, Kiro. Single maintainer.",
+  "agents": ["claude", "codex", "cursor", "pi"],
+  "install": [
+    { "id": "npm", "platforms": ["darwin", "linux", "win32"], "requires": "npm", "run": "npm i -g @llmtrim/cli@latest", "uninstall": "npm uninstall -g @llmtrim/cli" }
+  ],
+  "configure": { "*": "llmtrim setup" },
+  "unconfigure": { "*": "llmtrim uninstall" },
+  "version": "llmtrim --version",
+  "verify": "llmtrim doctor",
+  "status": "llmtrim status",
+  "commands": [
+    { "cmd": "llmtrim status", "desc": "Savings dashboard and interceptor health" },
+    { "cmd": "llmtrim doctor", "desc": "Check the install end to end; --fix applies repairs" },
+    { "cmd": "llmtrim wrap <agent>", "desc": "Launch one agent (claude, codex, …) through the interceptor" },
+    { "cmd": "llmtrim start / stop", "desc": "Start or stop the background interceptor" },
+    { "cmd": "llmtrim autostart --off", "desc": "Stop running the interceptor at login" },
+    { "cmd": "llmtrim ca", "desc": "Where the local CA certificate is and how to trust it" },
+    { "cmd": "llmtrim update", "desc": "Update to the latest release and refresh integrations" },
+    { "cmd": "llmtrim uninstall [--purge]", "desc": "Undo everything setup did (--purge also drops the savings ledger)" }
+  ]
+}

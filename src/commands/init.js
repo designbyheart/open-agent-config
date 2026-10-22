@@ -8,6 +8,7 @@ import { hashSource, loadTargets, loadSkills, loadStacks, loadOllamaApps } from 
 import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { addContext } from '../telemetry.js';
 import { installGraphHook } from '../graphHook.js';
+import { applyTrim, parseTrimFlag, trimFromChoice, trimCatalog, enabledTrim } from '../trim.js';
 import { isKnownTarget } from '../targets/registry.js';
 
 const DEFAULT_OLLAMA_MODELS = [
@@ -64,6 +65,9 @@ function manifestFromFlags(projectDir, flags, existing) {
 
   const patterns = flags['no-patterns'] ? false : (existing?.patterns ?? true);
   const graphHook = flags['no-graph-hook'] ? false : (existing?.graphHook ?? true);
+  // Never on unless asked: no flag keeps the project's earlier choice.
+  const trimFlag = parseTrimFlag(flags.trim);
+  const trim = trimFlag === undefined ? existing?.trim : trimFromChoice(trimFlag, existing?.trim);
 
   return makeManifest({
     project: {
@@ -78,6 +82,7 @@ function manifestFromFlags(projectDir, flags, existing) {
     skillsOnly,
     patterns,
     graphHook,
+    trim,
     // sourceHash is set by cmdInit after apply — see the note there.
     cliVersion: cliVersion(),
   });
@@ -101,8 +106,11 @@ export async function cmdInit(ctx) {
       stacks: loadStacks(),
       ollamaApps: loadOllamaApps(),
       defaultOllamaModels: DEFAULT_OLLAMA_MODELS,
+      trimTools: flags.trim === undefined ? trimCatalog() : [],
     });
     if (!selections) return; // user cancelled
+    const trimFlag = parseTrimFlag(flags.trim);
+    const trimChoice = trimFlag !== undefined ? trimFlag : selections.trim;
     manifest = makeManifest({
       project: selections.project,
       targets: selections.targets,
@@ -111,6 +119,7 @@ export async function cmdInit(ctx) {
       ollama: selections.ollama,
       patterns: selections.patterns,
       graphHook: flags['no-graph-hook'] ? false : (existing?.graphHook ?? true),
+      trim: Array.isArray(trimChoice) || trimChoice === false ? trimFromChoice(trimChoice, existing?.trim) : trimChoice,
       cliVersion: cliVersion(),
     });
   }
@@ -125,11 +134,15 @@ export async function cmdInit(ctx) {
     skills: manifest.skills,
     ollama: manifest.ollama,
     patterns: readProjectPatterns(projectDir)?.body,
+    trim: manifest.trim,
   });
   writeManifest(projectDir, manifest);
 
   // After the manifest is on disk: it marks the oac root the graph library hangs off.
   const graph = installGraphHook(projectDir, manifest, { flags });
+  // Last: installers are slow and may fail; the project is configured either way.
+  const trim = applyTrim(manifest, { flags });
+  if (trim.changed) writeManifest(projectDir, manifest);
 
   // Catalog ids only — which targets and skills people actually pick. No project
   // name, description, or path leaves the machine.
@@ -142,6 +155,7 @@ export async function cmdInit(ctx) {
     patterns: manifest.patterns !== false,
     interactive: !(flags.yes || flags.y),
     graph_hook: graph.mode,
+    trim: enabledTrim(manifest),
   });
 
   if (manifest.skillsOnly) {
@@ -151,8 +165,8 @@ export async function cmdInit(ctx) {
   }
   console.log(`  ✔ Wrote ${written.length} path(s):`);
   for (const w of written) console.log(`      ${w}`);
-  for (const l of graph.lines) console.log(`  ✔ ${l}`);
-  for (const w of [...initWarnings, ...graph.warnings]) console.log(`  ⚠ ${w}`);
+  for (const l of [...graph.lines, ...trim.lines]) console.log(`  ✔ ${l}`);
+  for (const w of [...initWarnings, ...graph.warnings, ...trim.warnings]) console.log(`  ⚠ ${w}`);
   console.log(`\n  Manifest: ${MANIFEST_NAME}`);
   if (written.includes(PATTERNS_REL)) {
     console.log(`\n  → Tune ${PATTERNS_REL} for this project:`);

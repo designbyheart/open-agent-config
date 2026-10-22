@@ -11,6 +11,7 @@ export const TEMPLATES_DIR = path.join(CATALOG_DIR, 'templates');
 export const PATTERNS_TEMPLATE_FILE = path.join(TEMPLATES_DIR, 'communication-patterns.md');
 export const TARGETS_FILE = path.join(CATALOG_DIR, 'targets.json');
 export const OLLAMA_APPS_FILE = path.join(CATALOG_DIR, 'ollama-apps.json');
+export const TRIM_DIR = path.join(CATALOG_DIR, 'trim');
 
 /**
  * Catalog text, always LF. Everything downstream assumes `\n` — `writeText`
@@ -161,6 +162,19 @@ export function loadOllamaApps() {
   return JSON.parse(readCatalogText(OLLAMA_APPS_FILE));
 }
 
+/** Opt-in token savers (catalog/trim/<id>.json), in display order. */
+export function loadTrimTools() {
+  return listFiles(TRIM_DIR)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => JSON.parse(readCatalogText(path.join(TRIM_DIR, f))))
+    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+}
+
+/** Usage rules a token saver contributes to the generated configs, or ''. */
+export function trimGuidance(tool) {
+  return Array.isArray(tool.guidance) ? tool.guidance.join('\n') : tool.guidance || '';
+}
+
 function titleFromBody(body) {
   const m = body.match(/^#\s+(.+)$/m);
   return m ? m[1].trim() : null;
@@ -170,7 +184,7 @@ function titleFromBody(body) {
  * Stable content hash of the rule material a project depends on. Lets `doctor`
  * detect when the catalog has changed since the last generation.
  */
-export function hashSource({ stacks = [], skills = [], ollama, patterns } = {}) {
+export function hashSource({ stacks = [], skills = [], ollama, patterns, trim } = {}) {
   const h = crypto.createHash('sha256');
   for (const r of loadRules()) h.update(`rule:${r.id}\n${r.body}\n`);
   // The project's own patterns file is inlined into every generated config, so
@@ -187,6 +201,11 @@ export function hashSource({ stacks = [], skills = [], ollama, patterns } = {}) 
     const s = skillById.get(id);
     h.update(`skill:${id}\n${s ? s.body : ''}\n`);
     if (s) for (const d of s.extraDocs || []) h.update(`skilldoc:${d.path}\n${d.body}\n`);
+  }
+  // An enabled token saver's usage rules go into every generated config.
+  const trimIds = (trim && trim.tools) || [];
+  for (const t of loadTrimTools()) {
+    if (trimIds.includes(t.id) && trimGuidance(t)) h.update(`trim:${t.id}\n${trimGuidance(t)}\n`);
   }
   if (ollama) {
     for (const m of [...(ollama.models || [])].sort()) h.update(`ollama-model:${m}\n`);

@@ -11,6 +11,7 @@ import { cmdImportSkill } from './commands/import.js';
 import { cmdKeys } from './commands/keys.js';
 import { cmdUpdate } from './commands/update.js';
 import { cmdTelemetry } from './commands/telemetry.js';
+import { cmdTrim } from './commands/trim.js';
 import { track } from './telemetry.js';
 
 export { PKG_ROOT };
@@ -62,6 +63,10 @@ const HELP = `
     doctor               Verify the project's config (drift, missing files, stale source)
     keys                 Print this project's aliases, reference codes, skills and commands
     update               Pull the latest oac itself (git checkout or npm install)
+    trim [status]        Token savers: what is on, installed, configured, and saved
+    trim help [tool]     What rtk / llmtrim do, when they help, and their commands
+    trim on <tool>       Install + configure a token saver for this project's agents
+    trim off [tool]      Undo a token saver (its own uninstall + oac's rules for it)
     telemetry [on|off]   Show or change anonymous usage counting (status by default)
 
   Options
@@ -72,6 +77,8 @@ const HELP = `
     --skills-only        Install skills + manifest only; never write/modify rule files
     --no-patterns        Don't scaffold .oac/communication-patterns.md (an existing one is still used)
     --no-graph-hook      Don't install the graphify refresh git hook (sticks in the manifest)
+    --trim=rtk,llmtrim   init/sync: enable token savers without the prompt (--trim=off declines)
+    --dry-run            init/sync/trim: print token-saver install/configure commands, run nothing
     --check              update: report what's available without installing it
     --no-telemetry       Send no usage event for this run
     --yes, -y            Non-interactive; accept defaults / flag values
@@ -84,6 +91,7 @@ const HELP = `
     oac sync
     oac list targets
     oac keys
+    oac trim help rtk
     oac update --check
 `;
 
@@ -139,6 +147,8 @@ async function dispatch(command, ctx) {
       return cmdKeys(ctx);
     case 'update':
       return cmdUpdate(ctx);
+    case 'trim':
+      return cmdTrim(ctx);
     default:
       throw new Error(`Unknown command: ${command}\nRun "oac --help" for usage.`);
   }

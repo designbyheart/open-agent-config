@@ -1,0 +1,56 @@
+{
+  "id": "rtk",
+  "name": "rtk",
+  "order": 1,
+  "kind": "shell-output",
+  "bin": "rtk",
+  "homepage": "https://github.com/rtk-ai/rtk",
+  "hint": "condenses shell command output (git, tests, builds, ls) before the agent reads it",
+  "trims": "Shell command output, at the source: a hook rewrites known commands (git, test runners, builds, grep, ls) to rtk, which drops noise and keeps errors.",
+  "helps": "Long, noisy terminal output: test suites, builds, git logs, package managers. It never sees file reads, searches or MCP results, and an independent benchmark found little change in the billed cost on Claude, so treat it as cheap and low-risk rather than a big saver.",
+  "caveats": "Installs a PreToolUse hook in each agent's global config. Another project named rtk exists; `rtk gain` must work.",
+  "agents": ["claude", "codex", "cursor", "copilot", "pi", "hermes", "windsurf"],
+  "install": [
+    { "id": "brew", "platforms": ["darwin", "linux"], "requires": "brew", "run": "brew install rtk", "uninstall": "brew uninstall rtk" },
+    { "id": "script", "platforms": ["darwin", "linux"], "requires": "curl", "run": "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh", "uninstall": null },
+    { "id": "winget", "platforms": ["win32"], "requires": "winget", "run": "winget install rtk-ai.rtk", "uninstall": "winget uninstall rtk-ai.rtk" }
+  ],
+  "configure": {
+    "claude": "rtk init -g --hook-only --auto-patch",
+    "codex": "rtk init -g --codex",
+    "cursor": "rtk init -g --agent cursor --auto-patch",
+    "copilot": "rtk init -g --copilot --auto-patch",
+    "pi": "rtk init -g --agent pi --auto-patch",
+    "hermes": "rtk init --agent hermes --auto-patch"
+  },
+  "unconfigure": {
+    "claude": "rtk init -g --uninstall",
+    "codex": "rtk init -g --codex --uninstall",
+    "cursor": "rtk init -g --agent cursor --uninstall",
+    "copilot": "rtk init -g --copilot --uninstall",
+    "pi": "rtk init -g --agent pi --uninstall",
+    "hermes": "rtk init --agent hermes --uninstall"
+  },
+  "version": "rtk --version",
+  "verify": "rtk gain",
+  "status": "rtk gain",
+  "commands": [
+    { "cmd": "rtk gain", "desc": "Tokens saved so far (estimated from bytes, not your bill)" },
+    { "cmd": "rtk gain --history", "desc": "Recent commands and what each one saved" },
+    { "cmd": "rtk discover", "desc": "Commands in your Claude Code history that rtk could have condensed" },
+    { "cmd": "rtk session", "desc": "How many shell calls per session actually went through rtk" },
+    { "cmd": "rtk bypass <cmd>", "desc": "Run one command unfiltered (still counted)" },
+    { "cmd": "rtk recall <hash>", "desc": "Get back output a filter elided" },
+    { "cmd": "rtk init --show", "desc": "Which agents have the hook installed" },
+    { "cmd": "rtk cc-economics", "desc": "Claude Code spend (via ccusage) next to rtk savings" },
+    { "cmd": "rtk telemetry status", "desc": "Telemetry consent (off unless you opt in)" }
+  ],
+  "guidanceTitle": "Shell output (rtk)",
+  "guidance": [
+    "Shell output is condensed by rtk before you read it. Treat it as the complete result and batch related commands into one call.",
+    "",
+    "- Re-run a command as `rtk bypass <cmd>` only when its result is unusable: empty when output was clearly expected, contradicting its exit code, or garbled.",
+    "- A truncated result names its own recovery path (such as `rtk recall <hash>`); use that instead of re-running.",
+    "- Agents with an rtk hook (Claude Code, Codex, Cursor, Copilot, Pi, Hermes) rewrite commands automatically. Elsewhere, prefix common commands yourself: `rtk git status`, `rtk test npm test`."
+  ]
+}

@@ -10,7 +10,7 @@ import { exists, readText, writeText } from './fsutil.js';
  *
  * What is sent: the command name, oac/node/OS versions, how long it took, and
  * whether it succeeded. For `init`/`sync`, the catalog ids selected (targets,
- * stacks, skills) — these name things in *this repo*, not anything about the user.
+ * stacks, skills, token savers) — these name things in *this repo*, not anything about the user.
  *
  * What is never sent: project names or descriptions, directory paths, file
  * contents, git remotes, hostnames, usernames, or error messages (which routinely

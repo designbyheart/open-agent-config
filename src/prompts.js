@@ -13,6 +13,7 @@ export async function interactiveSetup({
   stacks,
   ollamaApps = [],
   defaultOllamaModels = [],
+  trimTools = [],
 }) {
   p.intro('open-agent-config — configure this project');
 
@@ -69,6 +70,14 @@ export async function interactiveSetup({
     }
   }
 
+  // Token savers: opt-in, nothing selected by default.
+  let trim = existing?.trim;
+  if (trimTools.length) {
+    const tools = await askTrim(trimTools, existing?.trim);
+    if (tools === null) return cancel();
+    trim = tools;
+  }
+
   // Ollama models — only when the ollama target is selected.
   let ollama = { models: [], apps: [] };
   if (selectedTargets.includes('ollama')) {
@@ -118,10 +127,27 @@ export async function interactiveSetup({
     skills: selectedSkills,
     ollama,
     patterns,
+    trim,
   };
 
   function cancel() {
     p.cancel('Cancelled — no changes made.');
     return null;
   }
+}
+
+/**
+ * "Enable a token saver?" — a multiselect of the catalog's tools, none selected
+ * unless the project already enabled some. Resolves to the chosen ids, or null
+ * when cancelled. Also used by `oac sync` to ask an existing project once.
+ */
+export async function askTrim(trimTools, existingTrim) {
+  const picked = await p.multiselect({
+    message: 'Enable a token saver? (optional; see "oac trim help")',
+    options: trimTools.map((t) => ({ value: t.id, label: t.name, hint: t.hint })),
+    initialValues: (existingTrim && existingTrim.tools) || [],
+    required: false,
+  });
+  if (p.isCancel(picked)) return null;
+  return picked;
 }
