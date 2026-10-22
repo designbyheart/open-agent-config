@@ -48,6 +48,10 @@ repository belongs in your own fork, not here.
 ## Before opening a PR
 
 - `npm test` passes.
+- Tests that run git or the CLI are isolated: strip `GIT_*` from the environment at the
+  top of the file (copy it from `test/update.test.js`), point `HOME` and
+  `GIT_CONFIG_GLOBAL` at a temp dir, and set `OAC_TELEMETRY=0`. Run from a git hook,
+  an unisolated test commits into this repo, and an unsilenced one sends real usage events.
 - New behaviour has a test. Anything touching `src/managed.js` or `src/manifest.js`
   needs one, since both write to files a user may have hand edited.
 - No generated output committed — `AGENTS.md`, `CLAUDE.md`, `.cursor/`, and friends

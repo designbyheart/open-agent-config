@@ -1,6 +1,6 @@
 # open-agent-config (`oac`)
 
-[![test](https://github.com/designbyheart/open-agent-config/actions/workflows/test.yml/badge.svg)](https://github.com/designbyheart/open-agent-config/actions/workflows/test.yml) [![node](https://img.shields.io/badge/node-%E2%89%A518-brightgreen)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![test](https://github.com/designbyheart/open-agent-config/actions/workflows/test.yml/badge.svg)](https://github.com/designbyheart/open-agent-config/actions/workflows/test.yml) [![node](https://img.shields.io/badge/node-%E2%89%A520.12-brightgreen)](package.json) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 **One rules source. Every AI editor.** Write your engineering rules and skills once, and
 `oac` generates the config each tool actually reads — `CLAUDE.md`, `AGENTS.md`,
@@ -10,6 +10,18 @@ the skills you selected into place.
 Same rules in, same behaviour out, regardless of which editor a developer opens.
 Cross-platform (Windows / macOS / Linux). Every project gets its own self-contained
 config, so nested repos in one workspace can each run a different setup.
+
+Alongside the config, `oac` can also look after the tooling around your agents:
+
+- **[Knowledge graph](#keeping-the-graphify-graph-current)** — with the `graphify` skill, a
+  git hook keeps each repo's graph current after every commit, scoped to the oac root.
+- **[Token savers](#token-savers-oac-trim)** — opt-in rtk and llmtrim, installed,
+  configured and explained by `oac trim`.
+- **[PR review](#pre-push-pr-review-hook)** — a pre-push review, plus a `pr-review` skill
+  that checks a PR's state first and posts inline findings only when asked.
+
+Release notes for every version are on the
+[releases page](https://github.com/designbyheart/open-agent-config/releases).
 
 ![One rules source, every editor](media/oac-diagram.png)
 
@@ -251,6 +263,11 @@ one. That is deliberate: a global install would rewrite `package.json` in every 
 push from, and a global hooks directory can be overwritten by other tools (git-lfs does
 exactly this). The hook chains git-lfs and `pr-review-run` when they are present.
 
+Because that repo-local path hides your global hooks directory, `.githooks/` also ships
+`post-commit`, `post-merge` and `post-checkout` stubs that hand off to the global hook of
+the same name when there is one — so global hooks such as the
+[graphify refresh](#keeping-the-graphify-graph-current) still run in this repo.
+
 Bypass with `git push --no-verify`, or `SKIP_VERSION_BUMP=1 git push` to skip only the
 version guard. Uninstall with `git config --unset core.hooksPath`.
 
@@ -321,8 +338,9 @@ found rtk barely changed the billed cost on Claude. Compare your costs with it o
 
 ### Anonymous usage counting
 
-oac counts command runs so the author can tell whether anyone else uses it. It is
-anonymous, it is off in CI, and one command turns it off for good:
+oac counts command runs so the author can tell whether anyone else uses it. Events are
+sent from **0.2.7** on (earlier versions shipped without a project token, so they never
+sent anything). It is anonymous, it is off in CI, and one command turns it off for good:
 
 ```bash
 oac telemetry          # status, plus the exact payload that would be sent
@@ -496,13 +514,12 @@ oac init --yes --targets=claude,codex,ollama \
 
 ### Windows support
 
-Fully cross-platform. The CLI uses only Node's `fs`/`path` (no shell, no symlinks),
-and every Ollama launcher ships as both `.sh` (macOS/Linux) and `.ps1` (Windows
+Fully cross-platform. The CLI itself uses only Node's `fs`/`path` (no shell, no
+symlinks). The optional graphify hook is a POSIX `sh` script, which Git for Windows runs
+through its bundled shell; its worktree symlinks are best-effort. Every Ollama launcher ships as both `.sh` (macOS/Linux) and `.ps1` (Windows
 PowerShell 5.1+/7). Line endings are preserved per-file, and the executable bit is set
 where the OS supports it (a no-op on Windows). Run via `npx github:designbyheart/open-agent-config`
 (or the SSH form) on any OS.
-
----
 
 ---
 
@@ -611,8 +628,6 @@ claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
 
 ---
 
----
-
 ## Command reference
 
 | Command | What it does |
@@ -623,7 +638,10 @@ claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
 | `oac add-skill <name>` | Add a catalog skill to this project |
 | `oac remove-skill <name>` | Remove a skill and its installed folder |
 | `oac import-skill <src>` | Import a skill from a path or git URL into the catalog |
-| `oac doctor` | Verify config: missing files, broken managed blocks, stale catalog |
+| `oac doctor` | Verify config: missing files, broken managed blocks, stale catalog, graph hook and token-saver health |
+| `oac keys` | Print the project's aliases, reference codes, skills and commands |
+| `oac update [--check]` | Update oac itself |
+| `oac telemetry [on\|off]` | Anonymous usage counting: status, or turn it on/off |
 | `oac trim [status\|help\|on\|off] [tool]` | Token savers (rtk, llmtrim): status, explain, enable, undo |
 
 | Flag | Meaning |
@@ -635,6 +653,9 @@ claude -p "/pr-review origin/main..HEAD"   # run the review by hand, anytime
 | `--skills-only` | Install skills + manifest only; never write or modify rule files |
 | `--trim=rtk,llmtrim` | Enable token savers without the prompt; `--trim=off` declines |
 | `--dry-run` | Print token-saver install/configure commands instead of running them |
+| `--no-graph-hook` | Don't install the graphify refresh hook (saved in the manifest) |
+| `--no-patterns` | Don't scaffold `.oac/communication-patterns.md` |
+| `--no-telemetry` | Send nothing for this run |
 | `--yes`, `-y` | Non-interactive; use defaults and flag values |
 
 Full reference: [`CHEATSHEET.md`](CHEATSHEET.md).
@@ -644,7 +665,8 @@ Full reference: [`CHEATSHEET.md`](CHEATSHEET.md).
 ## Contributing
 
 Rules and skills live in `catalog/`. Add a markdown fragment, run `npm test`, open a PR.
-New editor targets go in `catalog/targets.json` plus a renderer in `src/`.
+New editor targets go in `catalog/targets.json` plus a renderer in `src/`. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) for the test-isolation rules.
 
 ### Maintainers: reach stats
 

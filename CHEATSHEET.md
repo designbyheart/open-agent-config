@@ -18,6 +18,7 @@ oac update [--check]     Update oac itself: git pull when linked to a checkout, 
 oac telemetry [on|off]   Anonymous usage counting: status, or turn it on/off
 oac trim [help|on|off]   Token savers (rtk, llmtrim): status, explain, enable, undo
 npm run hooks:install    Install the pre-push patch-version guard (this repo only)
+npm run stats            Maintainers: GitHub reach report (--save keeps weekly history)
 oac --help               Usage
 oac --version            Version
 ```
@@ -31,6 +32,11 @@ oac --version            Version
 --skills=a,b          Skills to install
 --ollama-models=a,b   Model tags for the ollama target (e.g. kimi-k2.6:cloud)
 --skills-only         Install skills + manifest only; never write/modify rule files
+--trim=rtk,llmtrim    Enable token savers without the prompt; --trim=off declines
+--dry-run             Print token-saver install/configure commands, run nothing
+--no-graph-hook       Don't install the graphify refresh hook
+--no-patterns         Don't scaffold .oac/communication-patterns.md
+--no-telemetry        Send no usage event for this run
 --yes, -y             Non-interactive (use defaults / flags)
 ```
 
