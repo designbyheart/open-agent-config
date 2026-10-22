@@ -606,6 +606,14 @@ Full reference: [`CHEATSHEET.md`](CHEATSHEET.md).
 Rules and skills live in `catalog/`. Add a markdown fragment, run `npm test`, open a PR.
 New editor targets go in `catalog/targets.json` plus a renderer in `src/`.
 
+### Maintainers: reach stats
+
+`npm run stats` reports stars, forks, watchers, 14-day clone/view traffic, top referrers and paths,
+release asset downloads and GitHub Packages versions via `gh api` (needs push access; package
+versions need `gh auth refresh -s read:packages`). `--json` for machine output, `--repo owner/name`
+for another repo. GitHub keeps traffic for 14 days only, so run with `--save` weekly: it appends a
+snapshot to `~/.config/oac/stats-history.jsonl` and later runs print week-over-week deltas.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
