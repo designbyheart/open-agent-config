@@ -8,6 +8,10 @@ import { spawnSync } from 'node:child_process';
 
 import { requiredVersion, parseSemver, compare, fmt } from '../hooks/version-bump.mjs';
 
+// Run from a git hook, git exports GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE. Every git
+// call below would inherit them and commit into the real repo instead of the temp one.
+for (const key of Object.keys(process.env)) if (key.startsWith('GIT_')) delete process.env[key];
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK = path.join(REPO, 'hooks', 'version-bump.mjs');
 

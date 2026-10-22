@@ -7,6 +7,10 @@ import { spawnSync } from 'node:child_process';
 
 import { installMode, updateFromGit, gitSpec, globalBinOwner, clearBinConflict } from '../src/commands/update.js';
 
+// Run from a git hook, git exports GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE. Every git
+// call below would inherit them and commit into the real repo instead of the temp one.
+for (const key of Object.keys(process.env)) if (key.startsWith('GIT_')) delete process.env[key];
+
 const run = (cwd, cmd, args) => {
   const r = spawnSync(cmd, args, { cwd, encoding: 'utf8' });
   assert.equal(r.status, 0, `${cmd} ${args.join(' ')} failed: ${r.stderr}`);
