@@ -39,6 +39,16 @@ The build produces three artifacts:
 Add all three to `.gitignore` unless the team has decided to commit a snapshot. They are
 build output, they go stale, and a stale graph read as current is worse than no graph.
 
+## Keeping it fresh
+
+Installed through `oac`, this skill comes with a git hook (`graphify-refresh`) that rebuilds
+the graph AST-only, in the background, after each commit, merge and branch switch, but only
+for repos that already have a graph. Graphs are scoped to the oac root (the folder holding
+`agent.config.json`): in-tree `graphify-out/` for a single repo, or
+`<root>/graphify-local/repos/<repo>/graphify-out` when the root holds several repos, with a
+`graphify-out` symlink in each checkout and worktree. `GRAPHIFY_SKIP_HOOK=1` skips one run;
+`oac init --no-graph-hook` opts out.
+
 ## Querying
 
 ```bash

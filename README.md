@@ -254,6 +254,34 @@ exactly this). The hook chains git-lfs and `pr-review-run` when they are present
 Bypass with `git push --no-verify`, or `SKIP_VERSION_BUMP=1 git push` to skip only the
 version guard. Uninstall with `git config --unset core.hooksPath`.
 
+### Keeping the graphify graph current
+
+With the [`graphify`](catalog/skills/graphify/SKILL.md) skill selected, `oac init` and
+`oac sync` install a git hook that refreshes the project's knowledge graph after every
+commit, merge and branch switch. The rebuild is AST-only (no LLM cost) and runs detached,
+so git never waits on it; it logs to `~/.cache/graphify-refresh.log` and never fails a git
+command.
+
+- **Where the hook goes.** Into your global `core.hooksPath` when one is set, covering every
+  repo; existing hooks (git-lfs, for one) keep their last line and exit code. Without a
+  global hooksPath oac installs into this project only and does not set one — that would
+  silently disable every repo's `.git/hooks`. `oac sync` upgrades the script in place.
+- **Where the graph lives.** Scoped to the oac root (the nearest folder above the repo
+  holding `agent.config.json`), never machine-wide. A single-repo root keeps it in-tree at
+  `graphify-out/`; a folder holding several repos keeps one per repo at
+  `<root>/graphify-local/repos/<repo>/graphify-out`. Worktrees, wherever they live, share
+  their main repo's graph through a `graphify-out` symlink. Repos without a graph are left
+  alone.
+- **First build.** When the `graphify` CLI is on `PATH` (`uv tool install graphifyy`), init
+  and sync build missing graphs — every repo directly under a multi-repo root — and add
+  `graphify-out` (and `graphify-local/` at a git-tracked root) to `.gitignore`. Skipped in CI.
+- **Merged graph.** The hook does not rebuild it; after updates run
+  `graphify merge-graphs <root>/graphify-local/repos/*/graphify-out/graph.json --out <root>/graphify-local/merged-graph.json`.
+
+Opt out with `oac init --no-graph-hook` (or `oac sync --no-graph-hook`); it is stored as
+`graphHook: false` in the manifest. Skip a single git command with `GRAPHIFY_SKIP_HOOK=1`.
+`oac doctor` reports whether the hook is installed and whether graphify is on `PATH`.
+
 ### Anonymous usage counting
 
 oac counts command runs so the author can tell whether anyone else uses it. It is
