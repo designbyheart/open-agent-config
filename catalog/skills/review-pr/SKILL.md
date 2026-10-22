@@ -35,8 +35,8 @@ Only report real findings. If there are no findings, say so explicitly.
    ```bash
    gh pr view <pr> --json state,mergedAt,closedAt,url,headRefOid
    ```
-   - **Merged**: warn the user up front and stop. Say plainly that it is already merged and
-     ask whether they still want the review. Do not review first and mention it afterwards.
+   - **Merged**: stop before reviewing and reply with one line: `Skipped #<n>: merged.` No
+     link, dates, explanation or follow-up question.
    - **Closed, not merged**: say so, then ask whether to continue and whether anything should
      still be published.
    - **Open**: state it in one clause and carry on.
@@ -108,6 +108,13 @@ Only report real findings. If there are no findings, say so explicitly.
    - do not publish
 
 9. **Publish selected comments with gh**
+   - **Re-check the PR first**, right before the first post call:
+     `gh pr view <pr> --json state,mergedAt,headRefOid,reviewDecision`. If it is merged or
+     closed, or `headRefOid` is not the commit you reviewed, do not post: tell the user in one
+     line ("Not posted: already merged." or "Not posted: head moved to <sha>.") and review the
+     new commits before asking again. When the checks pass, don't mention them.
+     Post with `commit_id` = the reviewed sha; never `gh pr review --approve`, which approves
+     whatever the head is at that moment.
    - Prefer inline comments when you have a confident file + diff location.
    - Prefer a review summary for cross-cutting findings or uncertain anchors.
    - Summary review:

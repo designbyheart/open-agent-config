@@ -39,8 +39,10 @@ user asks for it (see "Posting the review to GitHub").
      - **Changes requested**: `reviewDecision` is `CHANGES_REQUESTED`, or any entry in
        `latestReviews` has state `CHANGES_REQUESTED`.
 
-     Report the skip in one line (the PR, which condition, who and when) and stop. Do not ask
-     whether to review it anyway.
+     Report the skip as one short line and stop: `Skipped #<n>: <reason>.`, where the reason
+     is one or two words (merged, draft, approved, changes requested, already reviewed). No
+     link, no who or when, no description of the earlier review, no re-review offer, no
+     follow-up questions.
    - **Closed, not merged**: say so, then ask whether to continue and whether anything should
      still be posted.
    - **Open, none of the above**: state it in one clause and carry on.
@@ -180,17 +182,19 @@ explicit request.
   which set before posting.
 
 - **Re-check the PR right before posting.** Approval can come long after the review, and the
-  PR can move in between. Note the `headRefOid` you reviewed in step 1, then immediately
+  PR can move in between. Run the checks silently: do not tell me they were run or what they
+  found when everything is fine. Report only when posting does not happen, in one short line
+  (e.g. "Not posted: already merged." or "Not posted: head moved to <sha>.").
+  Note the `headRefOid` you reviewed in step 1, then immediately
   before the post call run:
 
   ```bash
   gh pr view <pr> --json state,mergedAt,headRefOid,reviewDecision
   ```
 
-  - **Merged or closed**: do not post. Say so in one line and stop.
-  - **`headRefOid` differs from the reviewed commit**: do not post. Say the head moved
-    (old sha → new sha, commit count, file count from `gh pr view --json files`), review the
-    new commits, and post only after the user confirms on the new head.
+  - **Merged or closed**: do not post. Say "Not posted: already merged." (or closed) and stop.
+  - **`headRefOid` differs from the reviewed commit**: do not post. Say "Not posted: head moved
+    to <sha>.", review the new commits, and post only after the user confirms on the new head.
   - **Already `APPROVED` or `CHANGES_REQUESTED` by someone else**: say so and ask first.
   - Otherwise post, with `commit_id` set to the reviewed sha. Never use `gh pr review
     --approve`: it approves whatever the head is at that moment.
@@ -223,7 +227,7 @@ When asked to review every PR waiting on me (for example a
 2. **Filter**: keep open, non-draft PRs that I have not reviewed. `latestReviews` misses
    comment-only reviews, so check `gh api repos/<org>/<repo>/pulls/<n>/reviews` and
    `.../comments` for my login. Here, approvals or change requests by other people do not
-   skip a PR. List the skipped ones (already reviewed by me, drafts) in one line each.
+   skip a PR. List the skipped ones as `Skipped #<n>: <reason>.`, one line each, nothing more.
 3. **Review one by one**, one read-only subagent per PR in parallel (start more as slots
    free). Each one runs the full steps above, posts nothing, and writes its result to
    `<docs>/pr-reviews-<YYYY-MM-DD>/<number>.md`: header (author, size, CI, reviewed sha),
@@ -233,3 +237,9 @@ When asked to review every PR waiting on me (for example a
 4. **Tracker**: `<docs>/pr-reviews-<YYYY-MM-DD>.md`, grouped in batches of 10, one table row
    per PR with a `[ ]` checkbox, PR link, title, suggested action and key point.
 5. **Post only when asked**, per "Posting the review to GitHub", then tick the posted rows.
+
+## After posting
+
+On success, reply with one line: `Posted on #<n>: <APPROVE|COMMENT>, <k> comments.` Nothing
+about the pre-post checks, the payload or the API call. On failure, one line saying it was not
+posted and why.
