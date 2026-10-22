@@ -7,6 +7,7 @@ import { readManifest, makeManifest, writeManifest, MANIFEST_NAME } from '../man
 import { hashSource, loadTargets, loadSkills, loadStacks, loadOllamaApps } from '../catalog.js';
 import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { addContext } from '../telemetry.js';
+import { installGraphHook } from '../graphHook.js';
 import { isKnownTarget } from '../targets/registry.js';
 
 const DEFAULT_OLLAMA_MODELS = [
@@ -62,6 +63,7 @@ function manifestFromFlags(projectDir, flags, existing) {
   }
 
   const patterns = flags['no-patterns'] ? false : (existing?.patterns ?? true);
+  const graphHook = flags['no-graph-hook'] ? false : (existing?.graphHook ?? true);
 
   return makeManifest({
     project: {
@@ -75,6 +77,7 @@ function manifestFromFlags(projectDir, flags, existing) {
     ollama,
     skillsOnly,
     patterns,
+    graphHook,
     // sourceHash is set by cmdInit after apply — see the note there.
     cliVersion: cliVersion(),
   });
@@ -107,6 +110,7 @@ export async function cmdInit(ctx) {
       stacks: selections.stacks,
       ollama: selections.ollama,
       patterns: selections.patterns,
+      graphHook: flags['no-graph-hook'] ? false : (existing?.graphHook ?? true),
       cliVersion: cliVersion(),
     });
   }
@@ -124,6 +128,9 @@ export async function cmdInit(ctx) {
   });
   writeManifest(projectDir, manifest);
 
+  // After the manifest is on disk: it marks the oac root the graph library hangs off.
+  const graph = installGraphHook(projectDir, manifest, { flags });
+
   // Catalog ids only — which targets and skills people actually pick. No project
   // name, description, or path leaves the machine.
   addContext({
@@ -134,6 +141,7 @@ export async function cmdInit(ctx) {
     skills_only: Boolean(manifest.skillsOnly),
     patterns: manifest.patterns !== false,
     interactive: !(flags.yes || flags.y),
+    graph_hook: graph.mode,
   });
 
   if (manifest.skillsOnly) {
@@ -143,7 +151,8 @@ export async function cmdInit(ctx) {
   }
   console.log(`  ✔ Wrote ${written.length} path(s):`);
   for (const w of written) console.log(`      ${w}`);
-  for (const w of initWarnings) console.log(`  ⚠ ${w}`);
+  for (const l of graph.lines) console.log(`  ✔ ${l}`);
+  for (const w of [...initWarnings, ...graph.warnings]) console.log(`  ⚠ ${w}`);
   console.log(`\n  Manifest: ${MANIFEST_NAME}`);
   if (written.includes(PATTERNS_REL)) {
     console.log(`\n  → Tune ${PATTERNS_REL} for this project:`);

@@ -67,8 +67,8 @@ export function installId() {
   return id;
 }
 
-export function isCI() {
-  return CI_VARS.some((v) => process.env[v]);
+export function isCI(env = process.env) {
+  return CI_VARS.some((v) => env[v]);
 }
 
 /** Why telemetry is off, or null when it is on. */

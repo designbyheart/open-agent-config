@@ -50,6 +50,7 @@ export function makeManifest({
   ollama = { models: [], apps: [] },
   skillsOnly = false,
   patterns = true,
+  graphHook = true,
   sourceHash,
   cliVersion,
 }) {
@@ -67,6 +68,9 @@ export function makeManifest({
     // When false, oac never scaffolds `.oac/communication-patterns.md`. An
     // existing file is still inlined — opting out stops creation, not use.
     patterns,
+    // When false, oac never installs the graphify refresh hook, even with the
+    // graphify skill selected.
+    graphHook,
     targets,
     skills,
     stacks,

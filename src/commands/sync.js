@@ -6,6 +6,7 @@ import { readManifest, writeManifest, MANIFEST_NAME } from '../manifest.js';
 import { hashSource } from '../catalog.js';
 import { readProjectPatterns } from '../patterns.js';
 import { addContext } from '../telemetry.js';
+import { installGraphHook } from '../graphHook.js';
 import { applyManifest } from '../apply.js';
 
 export async function cmdSync(ctx) {
@@ -14,6 +15,9 @@ export async function cmdSync(ctx) {
   if (!manifest) {
     throw new Error(`No ${MANIFEST_NAME} here. Run "oac init" first.`);
   }
+
+  // Opting out on sync sticks, the same as on init.
+  if (ctx.flags['no-graph-hook']) manifest.graphHook = false;
 
   // Regenerate first — apply may scaffold the project patterns file, whose
   // content feeds the source hash — then refresh derived fields.
@@ -29,15 +33,20 @@ export async function cmdSync(ctx) {
   manifest.generatedAt = new Date().toISOString();
   writeManifest(projectDir, manifest);
 
+  // Re-run on every sync: this is how an upgraded refresh script reaches the hooks dir.
+  const graph = installGraphHook(projectDir, manifest, { flags: ctx.flags });
+
   addContext({
     targets: manifest.targets,
     stacks: manifest.stacks,
     skill_count: (manifest.skills || []).length,
     patterns: manifest.patterns !== false,
+    graph_hook: graph.mode,
   });
 
   console.log(`\n  ✔ Synced ${manifest.project.name} (${manifest.targets.join(', ')})`);
   console.log(`  ✔ ${written.length} path(s) regenerated.`);
-  for (const w of warnings) console.log(`  ⚠ ${w}`);
+  for (const l of graph.lines) console.log(`  ✔ ${l}`);
+  for (const w of [...warnings, ...graph.warnings]) console.log(`  ⚠ ${w}`);
   console.log('');
 }

@@ -13,8 +13,14 @@ import { AGENT_DOC_BUDGET_BYTES } from '../src/generate.js';
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(REPO, 'bin', 'cli.js');
 
+// `init --skills=all` selects graphify, whose hook install reads and writes global
+// git config and HOME. Point both at a throwaway so the real ones stay untouched.
+const SANDBOX = fs.mkdtempSync(path.join(os.tmpdir(), 'oac-e2e-home-'));
+const ENV = { ...process.env, HOME: SANDBOX, USERPROFILE: SANDBOX, GIT_CONFIG_GLOBAL: path.join(SANDBOX, '.gitconfig') };
+for (const key of Object.keys(ENV)) if (key.startsWith('GIT_') && key !== 'GIT_CONFIG_GLOBAL') delete ENV[key];
+
 function oac(dir, args) {
-  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, encoding: 'utf8' });
+  return spawnSync(process.execPath, [CLI, ...args], { cwd: dir, env: ENV, encoding: 'utf8' });
 }
 
 function tmpProject(name = 'demo-project') {

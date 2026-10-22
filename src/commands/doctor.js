@@ -6,6 +6,7 @@ import { docBytes } from '../generate.js';
 import { readProjectPatterns, PATTERNS_REL } from '../patterns.js';
 import { buildArtifacts, skillDirsFor, budgetWarning } from '../targets/registry.js';
 import { hasBlock } from '../managed.js';
+import { graphHookStatus, GRAPH_SKILL } from '../graphHook.js';
 
 export async function cmdDoctor(ctx) {
   const projectDir = resolveProjectDir(ctx.flags);
@@ -15,6 +16,8 @@ export async function cmdDoctor(ctx) {
   const problems = [];
   const warnings = [];
   const ok = [];
+  // Informational only: a missing graph hook never fails doctor.
+  const notes = [];
 
   // 1. Source drift.
   const current = hashSource({
@@ -83,8 +86,17 @@ export async function cmdDoctor(ctx) {
     }
   }
 
+  // 4. graphify refresh hook, when the graphify skill is selected.
+  if ((manifest.skills || []).includes(GRAPH_SKILL)) {
+    const { where, graphify } = graphHookStatus(projectDir);
+    const cli = graphify ? 'graphify on PATH' : 'graphify not on PATH (uv tool install graphifyy)';
+    if (where) ok.push(`graphify refresh hook installed (${where}); ${cli}.`);
+    else notes.push(`graphify refresh hook not installed${manifest.graphHook === false ? ' (opted out)' : ' (run "oac sync")'}; ${cli}.`);
+  }
+
   console.log(`\n  Doctor — ${manifest.project.name}`);
   for (const o of ok) console.log(`    ✔ ${o}`);
+  for (const n of notes) console.log(`    · ${n}`);
   for (const pr of problems) console.log(`    ✖ ${pr}`);
   for (const w of warnings) console.log(`    ⚠ ${w}`);
 

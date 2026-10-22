@@ -71,6 +71,7 @@ const HELP = `
     --stacks=a,b         Stack rule fragments: nextjs,react-native,swift-vapor
     --skills-only        Install skills + manifest only; never write/modify rule files
     --no-patterns        Don't scaffold .oac/communication-patterns.md (an existing one is still used)
+    --no-graph-hook      Don't install the graphify refresh git hook (sticks in the manifest)
     --check              update: report what's available without installing it
     --no-telemetry       Send no usage event for this run
     --yes, -y            Non-interactive; accept defaults / flag values

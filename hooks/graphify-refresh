@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# Keeps a repo's graphify graph current after commit, merge and branch checkout.
+# Installed by `oac init` / `oac sync` next to the post-commit / post-merge /
+# post-checkout hooks, which call it as:
+#   graphify-refresh <hook-name> [hook args...]
+#
+# A repo is refreshed only when it already has a graph, either:
+#   - a real graphify-out/ directory in the checkout, or
+#   - one under the repo's oac root: the nearest folder holding agent.config.json
+#     above the MAIN repo's directory (so linked worktrees living elsewhere
+#     resolve to their main repo), searched below $HOME only:
+#       root is the repo itself    -> <main repo>/graphify-out
+#       root holds several repos   -> <root>/graphify-local/repos/<repo>/graphify-out
+#     Every worktree of a repo shares that one graph; the checkout gets a
+#     graphify-out symlink to it (when gitignored) so agents find it.
+# Repos without a graph are left alone. The rebuild is AST-only (no LLM cost)
+# and runs detached, so git never waits on it. Always exits 0.
+#
+# Bypass: GRAPHIFY_SKIP_HOOK=1    Log: ~/.cache/graphify-refresh.log
+
+hook=${1:-}
+[ "${GRAPHIFY_SKIP_HOOK:-}" = 1 ] && exit 0
+# post-checkout's third hook arg (here $4) is 1 for a branch switch, 0 for a file checkout.
+[ "$hook" = post-checkout ] && [ "${4:-0}" != 1 ] && exit 0
+command -v graphify >/dev/null 2>&1 || exit 0
+
+top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+gitdir=$(git rev-parse --absolute-git-dir 2>/dev/null) || exit 0
+# Mid rebase / merge / cherry-pick: wait for the final commit.
+[ -d "$gitdir/rebase-merge" ] || [ -d "$gitdir/rebase-apply" ] && exit 0
+[ -f "$gitdir/MERGE_HEAD" ] || [ -f "$gitdir/CHERRY_PICK_HEAD" ] && exit 0
+
+common=$(cd "$top" && cd "$(git rev-parse --git-common-dir)" && pwd -P) || exit 0
+main=$(dirname "$common")
+case $(basename "$common") in
+  .git) repo=$(basename "$main") ;;
+  *)    repo=$(basename "$common" .git) ;;
+esac
+
+out=
+if [ -d "$top/graphify-out" ] && [ ! -L "$top/graphify-out" ]; then
+  out="$top/graphify-out"
+else
+  home=$(cd "$HOME" 2>/dev/null && pwd -P)
+  root=
+  dir=$main
+  while [ "$dir" != "$home" ] && [ "$dir" != / ] && [ -n "$dir" ]; do
+    [ -f "$dir/agent.config.json" ] && { root=$dir; break; }
+    dir=$(dirname "$dir")
+  done
+  [ -n "$root" ] || exit 0
+  if [ "$root" = "$main" ]; then
+    out="$main/graphify-out"
+  else
+    out="$root/graphify-local/repos/$repo/graphify-out"
+  fi
+  [ -d "$out" ] || exit 0
+  # Best effort: symlinks can be unavailable (Windows git-bash without developer mode).
+  if [ "$out" != "$top/graphify-out" ] && [ ! -e "$top/graphify-out" ] && git -C "$top" check-ignore -q graphify-out; then
+    ln -s "$out" "$top/graphify-out" 2>/dev/null || true
+  fi
+fi
+
+log=$HOME/.cache/graphify-refresh.log
+mkdir -p "$(dirname "$log")" 2>/dev/null
+
+# Git exports GIT_DIR / GIT_INDEX_FILE / GIT_WORK_TREE to hooks. graphify should
+# find the repo from its cwd like any other caller, so drop them.
+for var in $(env | sed -n 's/^\(GIT_[A-Za-z_]*\)=.*/\1/p'); do unset "$var"; done
+
+# graphify takes its own lock around the rebuild, so overlapping runs are safe.
+(
+  cd "$top" || exit 0
+  printf '%s %s %s -> %s\n' "$(date '+%F %T')" "$hook" "$top" "$out"
+  GRAPHIFY_OUT="$out" nice graphify update . 2>&1 | tail -3
+) >>"$log" 2>&1 </dev/null &
+
+exit 0
