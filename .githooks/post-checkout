@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+#
+# The repo-local core.hooksPath (see pre-push) hides the global hooks directory,
+# so hand this hook on to the global one when there is one.
+
+global=$(git config --global core.hooksPath 2>/dev/null) || exit 0
+case $global in "~/"*) global="$HOME/${global#\~/}" ;; esac
+hook="$global/$(basename "$0")"
+[ -x "$hook" ] && exec "$hook" "$@"
+exit 0
