@@ -35,7 +35,8 @@ function sandbox(extraEnv = {}) {
 async function loadTelemetry(env) {
   const saved = { ...process.env };
   Object.assign(process.env, env);
-  for (const [k, v] of Object.entries(env)) if (v === '') delete process.env[k];
+  // '' clears a variable, except the token: there an empty value is how a fork turns telemetry off.
+  for (const [k, v] of Object.entries(env)) if (v === '' && k !== 'OAC_MIXPANEL_TOKEN') delete process.env[k];
   const mod = await import(`../src/telemetry.js?t=${Math.random()}`);
   return {
     mod,
@@ -105,7 +106,7 @@ test('every documented opt-out disables sending', async () => {
   }
 });
 
-test('an unconfigured token makes telemetry inert rather than broken', async () => {
+test('an empty token makes telemetry inert rather than broken', async () => {
   const { env } = sandbox({ OAC_MIXPANEL_TOKEN: '' });
   const { mod, restore } = await loadTelemetry(env);
   try {

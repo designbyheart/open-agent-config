@@ -12,3 +12,4 @@ CLAUDE.md
 .oac/
 agent.config.json
 .agents/skills/
+.env

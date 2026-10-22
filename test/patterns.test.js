@@ -8,6 +8,9 @@ import { spawnSync } from 'node:child_process';
 
 import { PATTERNS_REL } from '../src/patterns.js';
 
+// The CLI runs below; keep it from sending real usage events from test runs.
+process.env.OAC_TELEMETRY = '0';
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(REPO, 'bin', 'cli.js');
 

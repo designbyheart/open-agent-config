@@ -22,9 +22,10 @@ import { exists, readText, writeText } from './fsutil.js';
  */
 
 // Mixpanel project token. This is a write-only, publishable key — it is meant to
-// ship inside clients. Until it is filled in, telemetry is inert.
-const TOKEN_PLACEHOLDER = 'REPLACE_WITH_MIXPANEL_PROJECT_TOKEN';
-const MIXPANEL_TOKEN = process.env.OAC_MIXPANEL_TOKEN || TOKEN_PLACEHOLDER;
+// ship inside clients. OAC_MIXPANEL_TOKEN overrides it, and an empty value makes
+// telemetry inert (see README for forks).
+const PROJECT_TOKEN = 'd1c3914377b7856203af592eaf4b3c63';
+const MIXPANEL_TOKEN = process.env.OAC_MIXPANEL_TOKEN ?? PROJECT_TOKEN;
 
 // Overridable (see README) so a fork can point at its own collector, and so tests
 // can exercise the enabled path without leaving the machine.
@@ -73,7 +74,7 @@ export function isCI(env = process.env) {
 
 /** Why telemetry is off, or null when it is on. */
 export function disabledReason(flags = {}) {
-  if (MIXPANEL_TOKEN === TOKEN_PLACEHOLDER) return 'no project token configured';
+  if (!MIXPANEL_TOKEN) return 'no project token configured';
   if (flags['no-telemetry']) return '--no-telemetry';
   if (process.env.DO_NOT_TRACK === '1' || process.env.DO_NOT_TRACK === 'true') return 'DO_NOT_TRACK';
   if (process.env.OAC_TELEMETRY === '0' || process.env.OAC_TELEMETRY === 'false') return 'OAC_TELEMETRY=0';

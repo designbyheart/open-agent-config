@@ -10,6 +10,9 @@ import { MANIFEST_NAME } from '../src/manifest.js';
 import { loadSkills, skillSourceDir } from '../src/catalog.js';
 import { AGENT_DOC_BUDGET_BYTES } from '../src/generate.js';
 
+// The CLI runs below; keep it from sending real usage events from test runs.
+process.env.OAC_TELEMETRY = '0';
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(REPO, 'bin', 'cli.js');
 
