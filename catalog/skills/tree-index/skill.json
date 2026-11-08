@@ -1,0 +1,18 @@
+{
+  "name": "tree-index",
+  "version": "1.0.0",
+  "description": "Vectorless retrieval for long structured documents: build a table-of-contents tree with per-node summaries, then answer by reasoning over the tree, reading full sections and following cross-references, with citations.",
+  "tags": [
+    "rag",
+    "retrieval",
+    "documents",
+    "vectorless",
+    "pageindex",
+    "citations"
+  ],
+  "install_targets": [
+    "repo",
+    "user"
+  ],
+  "entrypoint": "SKILL.md"
+}
