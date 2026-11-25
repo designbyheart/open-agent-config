@@ -1,22 +1,31 @@
 name: release
 
-# Cut a release by pushing the tag that matches package.json:
-#   git tag v0.1.3 && git push origin v0.1.3
-# Prerelease tags are deliberately not matched: publishing one without an explicit
+# Releases happen on their own: a merge to main whose package.json version has no tag yet
+# runs the suite, publishes that version and creates the vX.Y.Z tag and GitHub release.
+# A merge that leaves the version unchanged does nothing here.
+# Pushing a tag by hand still works (git tag v0.1.3 && git push origin v0.1.3).
+# Prerelease versions and tags are deliberately skipped: publishing one without an explicit
 # --tag would move the `latest` dist-tag onto it.
 on:
   push:
+    branches: [main]
     tags: ['v[0-9]+.[0-9]+.[0-9]+']
 
 permissions:
-  contents: write   # create the GitHub release
+  contents: write   # create the tag and the GitHub release
   packages: write   # publish to the GitHub Packages npm registry
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: 22
@@ -26,24 +35,38 @@ jobs:
           registry-url: https://npm.pkg.github.com
           scope: '@designbyheart'
 
-      # A tag that disagrees with the manifest would publish the wrong version.
-      # Cheapest gate, so it runs before anything is installed.
-      - name: Tag must match package.json
+      # Decide what, if anything, to release. Cheapest gate, so it runs before anything is
+      # installed. A tag push must match package.json; a main push releases only a stable
+      # version that has no tag yet.
+      - name: Version to release
+        id: version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           pkg=$(node -p "require('./package.json').version")
-          [ "$tag" = "$pkg" ] || { echo "tag $GITHUB_REF_NAME != package.json $pkg"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            [ "${GITHUB_REF_NAME#v}" = "$pkg" ] || { echo "tag $GITHUB_REF_NAME != package.json $pkg"; exit 1; }
+          elif ! printf '%s' "$pkg" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "package.json $pkg is a prerelease; not releasing"; exit 0
+          elif git rev-parse -q --verify "refs/tags/v$pkg" >/dev/null; then
+            echo "v$pkg is already released"; exit 0
+          fi
+          echo "tag=v$pkg" >> "$GITHUB_OUTPUT"
 
-      - run: npm ci --no-audit --no-fund
-      - run: npm test
+      - if: steps.version.outputs.tag
+        run: npm ci --no-audit --no-fund
+      - if: steps.version.outputs.tag
+        run: npm test
 
-      # GITHUB_TOKEN is scoped to this repo — no long-lived credential in secrets.
+      # GITHUB_TOKEN is scoped to this repo, so there's no long-lived credential in secrets.
       # Package visibility follows the repository's.
-      - run: npm publish
+      - if: steps.version.outputs.tag
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: GitHub release
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+      # On a main push this also creates the tag at the released commit. A tag pushed with
+      # GITHUB_TOKEN does not start another workflow run, so nothing publishes twice.
+      - if: steps.version.outputs.tag
+        name: GitHub release
+        run: gh release create "${{ steps.version.outputs.tag }}" --target "$GITHUB_SHA" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

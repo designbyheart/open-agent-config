@@ -75,16 +75,20 @@ Packages go to the **GitHub Packages** npm registry, published by
 npmjs account, no stored credential, and no manual first publish — package visibility
 just follows the repository's.
 
-A release is one tag:
+A release happens on merge. Bump `version` in `package.json` in the pull request. When it
+merges to `main` and that version has no tag yet, the workflow runs the suite, publishes
+`@designbyheart/open-agent-config`, and creates the `vX.Y.Z` tag and GitHub release. A merge
+that leaves the version unchanged publishes nothing, and prerelease versions are skipped.
+
+Pushing a tag by hand still works, for example to release a version that was merged before
+this was automatic:
 
 ```sh
-# package.json is already at the version you want — the pre-push guard sees to it
 git tag v0.1.3
 git push origin v0.1.3
 ```
 
-The workflow runs the suite, refuses a tag that disagrees with `package.json`,
-publishes `@designbyheart/open-agent-config`, and opens the GitHub release.
+The workflow refuses a tag that disagrees with `package.json`.
 
 Consumers need two lines of `~/.npmrc` before installing, because GitHub Packages
 requires authentication even for public packages:
