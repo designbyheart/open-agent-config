@@ -45,6 +45,17 @@ repository belongs in your own fork, not here.
 2. Add a renderer in `src/targets/` and register it in `src/targets/registry.js`.
 3. Add a test asserting the artifact path and that its managed block round-trips.
 
+## Changes go through pull requests
+
+This applies to people and agents alike.
+
+- Never push to `main` directly, even for docs-only changes or version bumps. Push a
+  branch and open a pull request against `main`.
+- Never force-push `main` or rewrite its history. Fix a mistake with a new commit in a
+  new pull request.
+- Commit messages follow the existing style (`feat(scope): ...`, `docs: ...`,
+  `chore: vX.Y.Z`), with no co-author trailers and no mentions of AI tools.
+
 ## Before opening a PR
 
 - `npm test` passes.
