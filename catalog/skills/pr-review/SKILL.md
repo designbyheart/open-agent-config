@@ -22,6 +22,22 @@ This skill does not change the repository. Do not edit files, stage, commit, or 
 inspect and report. Publishing the review to GitHub is the one exception, and only when the
 user asks for it (see "Posting the review to GitHub").
 
+## The review bar
+
+Balance speed against quality. The review exists to stop harm and keep the codebase clean,
+not to list everything that could possibly go wrong.
+
+- **Block real harm only:** destructive changes, data loss, billing or security risk, or a
+  change that breaks the team's workflow (CI, releases, shared tooling).
+- **Hold the quality line:** a clear break from the project's architecture, design system
+  (atomic design, shared components) or established patterns is worth a short comment, even
+  when nothing is broken.
+- **Skip the rest:** no exhaustive what-if lists, speculative edge cases or nits. If a finding
+  needs a long chain of unlikely events to matter, drop it.
+- **Match depth to risk:** a quick pass for small, UI-only or minor changes; a careful pass,
+  with each finding checked before it is reported, for the crucial areas listed under
+  "Posting the review to GitHub".
+
 ## Steps
 
 1. **Check the PR state before anything else.** Only when a PR number or URL was given.
@@ -274,6 +290,15 @@ When the skill runs on a schedule and posts without asking each time:
   on the first run after.
 - **Never repost.** Re-review only when someone asks for my review again by name; new
   commits or replies alone don't count.
+- **Ask where I am.** When I drive the run from a chat channel (Telegram, Slack and the like),
+  send questions and approvals there as short numbered options and end the turn. Never use
+  a blocking terminal prompt: it stops every later run until someone answers it at the
+  terminal.
+- **Leave room for other reviewers.** When a zone owner or another reviewer is tagged on their
+  own area, don't race them: comment instead of approving, or wait for their first pass.
+- **Check the outcome.** Keep a short weekly digest for me: what was approved, commented on or
+  skipped, and any approved PR that a later fix, revert or hotfix touched, so the rules can
+  be tuned.
 
 ## After posting
 
