@@ -59,43 +59,49 @@ user asks for it (see "Posting the review to GitHub").
    the description, and a conflict with the base branch (`git merge-tree` of the head
    against the base).
 
-2. **Obtain the diff.**
+2. **Read the ticket before the diff** when the PR names one (Linear, Jira, GitHub issue):
+   description, acceptance criteria and comments. Reading it first is what makes missing
+   parts of the implementation stand out.
+
+3. **Obtain the diff.**
    - If a PR number or URL was given, use `gh pr view` / `gh pr diff` for that PR.
    - Else if a diff was piped on stdin, review that.
    - Else if an argument range was given, run `git diff <range>` (and `git log --oneline <range>` for commit context).
    - Else run `git diff HEAD`.
    - If the diff is empty, output exactly `VERDICT: PASS` and stop.
 
-3. **Understand the change** before judging it. Read enough surrounding context (open the
+4. **Understand the change** before judging it. Read enough surrounding context (open the
    touched files if needed) to avoid false positives. A finding you can't stand behind is noise.
 
-4. **Check the change fits the codebase.** See how the project already solves the same
+5. **Check the change fits the codebase.** See how the project already solves the same
    problem: grep for similar calls and read sibling files for existing helpers, patterns,
    libraries and conventions. Flag a change that adds a second way of doing something the
    codebase already does, or brings in an approach with no precedent when an established
    one would work. `medium` when it duplicates or conflicts with an established approach,
    `low` when it only drifts in style.
 
-5. **Check every added package.** For each dependency added to a manifest (`package.json`,
+6. **Check every added package.** For each dependency added to a manifest (`package.json`,
    `Podfile`, `build.gradle`, `Gemfile`, `go.mod`, `requirements.txt`, ...), confirm it is
    needed: the diff actually uses it, the codebase has no package or helper that already
    does the job, a few lines of code would not do instead, and it is maintained with a
    compatible license. Flag an unnecessary or duplicate package as `medium`.
 
-6. **Walk the user flow as a QA tester.** Trace what a user does through the changed code:
+7. **Walk the user flow as a QA tester.** Trace what a user does through the changed code:
    the happy path first, then the edge cases (empty data, slow or failed network, signed
    out, first launch, retry, back navigation, other platforms and locales). Check that
    flows touched indirectly through shared code, callers or state still work. Anchor each
    break to the diff line that causes it, with severity set by the impact on the user.
 
-7. **Compare against the ticket** when the PR names one. Report it in three short bullet
-   groups only, writing "none" for an empty group:
+8. **Compare against the ticket** when the PR names one. Report only the gaps, each as one
+   short line stating the gap itself. Don't restate the ticket's goal, the PR's own numbers
+   or claims, or anything that already matches. Use three short bullet groups only,
+   writing "none" for an empty group:
    - **Missing from ticket:** requirements the code does not address.
    - **Extra work:** changes outside the ticket's scope.
    - **Off-pattern:** approaches that don't follow the established architecture, rules or
      conventions.
 
-8. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
+9. **Review like Copilot would.** For each meaningful issue produce a comment anchored to a
    file and line, classified by severity:
    - `high`: correctness bugs, security vulnerabilities, data loss, crashes, broken auth,
      secrets committed, injection, race conditions with real impact.
@@ -119,8 +125,13 @@ Rules:
   no what/why/how, no evidence grading. If the reason is not obvious from the issue line,
   fold it into that one line.
 - **Only comment on the code in the diff.** No follow-up section, no suggested tests to add
-  later, no refactor ideas, no things to verify manually, no praise for what the change got
-  right. If it is not an issue with this diff, it does not go in the report.
+  later, no refactor ideas, no praise for what the change got right, and no walkthrough of
+  what the code does correctly. If it is not an issue with this diff, it does not go in the
+  report.
+- **Manual checks are for me, not the author.** When the change touches UI or is risky, add a
+  short `You verify:` list for me: what to check by hand or by eye to be sure it works. It
+  stays in the report and is never posted to the PR, because the author already knows how
+  to test their change. Add a testing note for QA on the PR or ticket only when I ask.
 - **Repeat the PR url at the end**, on the line directly above the verdict, so it can be
   grabbed without scrolling back up. Nothing else goes between the findings and the verdict.
 - Plain everyday English, in the user's voice. No em dashes, and no en dashes or spaced
@@ -151,6 +162,8 @@ Print Markdown in this exact shape:
 
 (If there are no findings, write: _No issues found._)
 
+**You verify:** <short list, only for UI or risky changes; omit otherwise>
+
 <PR url>
 ```
 
@@ -176,8 +189,17 @@ explicit request.
   shape as the report.
 - **Post `medium` and above by default.** Drop `low` findings unless the user asks for them
   (for example "post all medium and lows"); then post every finding in the report.
-- **`event: APPROVE` when the verdict is PASS.** If a `high` finding survived, do not
-  approve: submit with `event: COMMENT` and say why in the one-line body.
+- **`event: APPROVE` when the verdict is PASS** and the PR is small, UI-only or minor. If a
+  `high` finding survived, do not approve: submit with `event: COMMENT` and say why in the
+  one-line body.
+- **Crucial changes never get an approval from the agent.** Payments and billing, auth and
+  permissions, backend business logic, database migrations, data deletion, infra and deploy,
+  and UI changes that need a human or visual check: submit `event: COMMENT` with the
+  findings and gaps, and leave the approval to me. Use `REQUEST_CHANGES` only for a real bug.
+  Tell me what to look at (the `You verify:` list).
+- **The body says only what is missing.** When the change matches the ticket and has no
+  findings, the body is one line. Otherwise it names the gaps, one short line each, with no
+  restated context.
 - If the number of findings the user names does not match what the review produced, ask
   which set before posting.
 
@@ -237,6 +259,21 @@ When asked to review every PR waiting on me (for example a
 4. **Tracker**: `<docs>/pr-reviews-<YYYY-MM-DD>.md`, grouped in batches of 10, one table row
    per PR with a `[ ]` checkbox, PR link, title, suggested action and key point.
 5. **Post only when asked**, per "Posting the review to GitHub", then tick the posted rows.
+
+## Unattended runs (watch mode)
+
+When the skill runs on a schedule and posts without asking each time:
+
+- **Scope:** review only PRs where I am the requested or assigned reviewer (a GitHub review
+  request, a bot naming me as reviewer, a direct @-mention or a ticket "requested your review").
+  A general "please review" in a channel is not enough.
+- **Pacing:** wait 2 to 3 minutes after the PR or request appears before posting, and use
+  that time for the ticket check. Don't wait longer.
+- **Quiet hours:** post nothing and send no notifications during my quiet hours (from my
+  global instructions; default 02:00 to 08:00 local time). Queue what arrives and handle it
+  on the first run after.
+- **Never repost.** Re-review only when someone asks for my review again by name; new
+  commits or replies alone don't count.
 
 ## After posting
 
